@@ -1,0 +1,9 @@
+{
+  "update_available": true,
+  "latest_version": "0.3.0",
+  "download_url": "https://raw.githubusercontent.com/NinaGott/RemindiKids/main/firmware/firmware.bin",
+  "firmware_sha256": "D57403E93378F3A32239E9B219A8063EFFE3FBE657D6C44A46244A31DF497073",
+  "assets_manifest_url": "https://raw.githubusercontent.com/NinaGott/RemindiKids/main/firmware/manifest-0.3.0.txt",
+  "assets_manifest_sha256": "0480CE26A9034547193F5E54A9CB819B7938C69BA45555154C89C04A85FDCC25",
+  "changelog": "RemindiKids OTA Test"
+}
