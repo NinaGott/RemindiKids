@@ -60,6 +60,9 @@ label.field input[type=color]:focus::-moz-color-swatch{border-color:var(--accent
 .event-group{display:flex;flex-direction:column;gap:.25rem}
 .event-row{display:flex;align-items:center;gap:.75rem;font-size:.8rem;padding:.35rem .5rem;border-bottom:1px solid var(--border)}
 .event-row:last-child{border-bottom:0}
+.ev-col{display:flex;align-items:center;gap:.4rem}
+.ev-type .ev-icon{display:inline-flex;width:18px;height:18px;color:#4b5563}
+.ev-type .ev-icon svg{width:18px;height:18px;display:block}
 .event-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .event-meta{color:var(--muted);min-width:120px}
 .event-actions button{margin-left:.25rem}
@@ -150,3 +153,7 @@ button.loading:after{content:'⏳';font-size:.8em;margin-left:.4em}
 .pw-wrap input{padding-right:44px}
 .pw-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:#f1f5f9;border:1px solid var(--border);border-radius:8px;width:34px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#334155;font-size:1rem}
 .pw-toggle:hover{background:#e2e8f0}
+/* Grey passive button style for 'Hostname prüfen' to indicate secondary action */
+.btn-hostname-pruefen{background:#eceff1;color:#374151;border:1px solid #d1d5db;border-radius:10px;padding:.55em 1.1em;font-size:.75rem;font-weight:600;letter-spacing:.5px;cursor:pointer;box-shadow:0 2px 8px -4px rgba(0,0,0,.15)}
+.btn-hostname-pruefen:hover{background:#e2e8f0}
+.btn-hostname-pruefen:disabled{opacity:.55;cursor:default}

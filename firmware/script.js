@@ -2,7 +2,7 @@
 (function(){
   // Inject minimal style for active wifi button if not defined
   if(!document.getElementById('wc-inline-style')){
-    const st=document.createElement('style'); st.id='wc-inline-style'; st.textContent=`button.active{outline:2px solid #1976d2; background:#1976d210}
+  const st=document.createElement('style'); st.id='wc-inline-style'; st.textContent=`button.active{outline:2px solid #1976d2; background:#1976d210}
     .wifi-item{display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-width:180px}
     .wifi-name{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .wifi-icon{position:relative;width:34px;height:14px;display:inline-block}
@@ -16,6 +16,18 @@
     .wifi-icon.lvl4 .b1,.wifi-icon.lvl4 .b2,.wifi-icon.lvl4 .b3,.wifi-icon.lvl4 .b4{background:#4caf50;height:100%}
     .wifi-icon.lvl1 .b1{background:#ff9800;height:40%}
     .wifi-icon.lvl1 .b2,.wifi-icon.lvl1 .b3,.wifi-icon.lvl1 .b4{opacity:.25}
+    /* Minimal Modal Fallback Styles (for cases where style.css isn't loaded) */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-start;justify-content:center;padding:4vh 1rem;z-index:1200}
+    .modal{background:#fff;color:#111;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;max-width:520px;width:100%;box-shadow:0 20px 48px -12px rgba(0,0,0,.3)}
+    .modal h2{margin:.2rem 0 1rem;font-size:1.1rem;color:#111}
+    .actions-compact{display:flex;flex-direction:column;gap:.6rem}
+    @media (min-width:480px){ .actions-compact{flex-direction:row;flex-wrap:wrap;align-items:center} }
+    .inline-pause.mobile-stack{display:flex;flex-direction:column;gap:.4rem;width:100%}
+    .inline-pause .pause-status{font-size:.75rem;color:#334155}
+    .inline-pause .pause-row{display:flex;flex-wrap:wrap;gap:.4rem}
+    .pause-select{min-width:86px}
+    .inline-pause button{flex:1}
+    @media (max-width:420px){ .inline-pause .pause-row{flex-direction:column} .inline-pause button{width:100%} }
     `; document.head.appendChild(st);
   }
   const app = document.getElementById('app');
@@ -98,15 +110,26 @@
     return await r.text();
   };
   const toast=(msg,type='info',timeout=4000)=>{
+    const text = (msg==null)? '' : String(msg);
+    // Suppress empty error toasts (occurs sporadically when switching connections AP to home network)
+    if(type==='error' && (!text || !text.trim())) return;
     const id=Date.now()+Math.random();
-    const t={id,msg,type};
+    const t={id,msg:text,type};
     State.toasts.push(t);renderToasts();
     if(timeout) setTimeout(()=>{State.toasts=State.toasts.filter(x=>x.id!==id);renderToasts();},timeout);
   };
 
+  // Captive-Portal Erkennung (iOS/Android verwenden spezielle WebViews)
+  function isCaptivePortalUA(){
+    try{
+      const ua=(navigator.userAgent||'');
+      return /CaptiveNetwork|CaptivePortal|MiniBrowser/i.test(ua);
+    }catch(_){ return false; }
+  }
+
   function renderToasts(){
     let c=document.querySelector('.toast-container');
-    if(!c){c=h('div',{class:'toast-container'});document.body.appendChild(c);} 
+    if(!c){c=h('div',{class:'toast-container'});document.body.appendChild(c);}
     c.innerHTML='';
     State.toasts.forEach(t=>{
       c.appendChild(h('div',{class:'toast toast-'+t.type},t.msg));
@@ -152,7 +175,7 @@
     // Fokus im Wizard merken
     let activeName=null, selStart=null, selEnd=null;
     const act=document.activeElement;
-    if(act && ['INPUT','SELECT','TEXTAREA'].includes(act.tagName)){
+      if(act && ['INPUT','SELECT','TEXTAREA'].includes(act.tagName)){
       activeName=act.getAttribute('name')||act.id;
       try{ selStart=act.selectionStart; selEnd=act.selectionEnd; }catch(_){}}
     const wrap=h('div',{class:'wizard'});
@@ -162,66 +185,66 @@
     ));
 
   if(State.step===0){
-      wrap.appendChild(h('h1',{},'WLAN verbinden'));
-  wrap.appendChild(h('p',{},'Verbinde dich mit diesem Setup-WLAN und wähle dann dein Heimnetz.'));
+    wrap.appendChild(h('h1',{},'Connect Wi‑Fi'));
+    wrap.appendChild(h('p',{},'Join this setup Wi-Fi and then choose your home network.'));
   const list=h('div',{id:'wifi-list',class:'card'});
   list.appendChild(scanArea());
       wrap.appendChild(list);
       wrap.appendChild(h('div',{class:'divider'}));
   const form=h('form',{onsubmit:e=>{e.preventDefault();connectWifi(form)}});
-  form.appendChild(h('label',{class:'field'},'SSID',h('input',{name:'ssid',required:true,placeholder:'Netzwerk',value:State.selectedSSID||'',oninput:e=>{State.selectedSSID=e.target.value;}})));
-  const pwInput=h('input',{id:'wifi-password',name:'password',type: (State.showWifiPassword?'text':'password'),required:true,placeholder:'Passwort',value:State.wifiPassword||'',oninput:e=>{State.wifiPassword=e.target.value;}});
-  const eyeBtn=h('button',{type:'button',class:'pw-toggle',title:(State.showWifiPassword?'Passwort verbergen':'Passwort anzeigen'),'aria-label':(State.showWifiPassword?'Passwort verbergen':'Passwort anzeigen'),onclick:()=>{ State.showWifiPassword=!State.showWifiPassword; try{ pwInput.setAttribute('type', State.showWifiPassword?'text':'password'); }catch(_){ } eyeBtn.textContent = State.showWifiPassword?'🙈':'👁'; eyeBtn.setAttribute('title', State.showWifiPassword?'Passwort verbergen':'Passwort anzeigen'); eyeBtn.setAttribute('aria-label', State.showWifiPassword?'Passwort verbergen':'Passwort anzeigen'); }}, State.showWifiPassword?'🙈':'👁');
+  form.appendChild(h('label',{class:'field'},'SSID',h('input',{name:'ssid',required:true,placeholder:'Network',value:State.selectedSSID||'',oninput:e=>{State.selectedSSID=e.target.value;}})));
+  const pwInput=h('input',{id:'wifi-password',name:'password',type: (State.showWifiPassword?'text':'password'),required:true,placeholder:'Password',value:State.wifiPassword||'',oninput:e=>{State.wifiPassword=e.target.value;}});
+  const eyeBtn=h('button',{type:'button',class:'pw-toggle',title:(State.showWifiPassword?'Hide password':'Show password'),'aria-label':(State.showWifiPassword?'Hide password':'Show password'),onclick:()=>{ State.showWifiPassword=!State.showWifiPassword; try{ pwInput.setAttribute('type', State.showWifiPassword?'text':'password'); }catch(_){ } eyeBtn.textContent = State.showWifiPassword?'🙈':'👁'; eyeBtn.setAttribute('title', State.showWifiPassword?'Hide password':'Show password'); eyeBtn.setAttribute('aria-label', State.showWifiPassword?'Hide password':'Show password'); }}, State.showWifiPassword?'🙈':'👁');
   const pwWrap=h('div',{class:'pw-wrap'}, pwInput, eyeBtn);
-  form.appendChild(h('label',{class:'field'},'Passwort',pwWrap));
-      form.appendChild(h('div',{class:'actions'},h('button',{type:'submit'},'Verbinden')));
+  form.appendChild(h('label',{class:'field'},'Password',pwWrap));
+    form.appendChild(h('div',{class:'actions'},h('button',{type:'submit'},'Connect')));
       wrap.appendChild(form);
       const hint=h('div',{class:'card'},
-  h('p',{},'Falls keine Netze erscheinen: Gerät näher an Router, kurz warten und "Aktualisieren" drücken.'),
-        h('p',{class:'small muted'},'Nach dem Verbinden wechselt dein Gerät ggf. automatisch ins Heimnetz. Diese Seite kann kurzzeitig nicht erreichbar sein.')
+  h('p',{},'If no networks appear: move the device closer to the router, wait a moment and press "Refresh".'),
+    h('p',{class:'small muted'},'After connecting, the device may switch to your home network. This page might be unavailable briefly.')
       ); 
       wrap.appendChild(hint);
     }
   else if(State.step===1){
-      // Adminpasswort/Anmeldung Schritt
+  // Admin password / login step
       const mustSet = State.dashboard?.stage === 'adminpass';
       const needsLogin = (!!State.dashboard?.authRequired && !State.dashboard?.authed);
       if(mustSet){
-        wrap.appendChild(h('h1',{},'Admin Passwort'));
-        wrap.appendChild(h('p',{},'Lege ein Passwort für die Weboberfläche fest.'));
+  wrap.appendChild(h('h1',{},'Admin password'));
+  wrap.appendChild(h('p',{},'Set a password for the web interface.'));
         const f=h('form',{onsubmit:e=>{e.preventDefault();setAdminPassword(f,true);}});
-        f.appendChild(field('Passwort','pw','password',''));
-        f.appendChild(field('Wiederholen','pw2','password',''));
+  f.appendChild(field('Password','pw','password',''));
+  f.appendChild(field('Repeat','pw2','password',''));
         wrap.appendChild(f);
-        wrap.appendChild(h('div',{class:'actions'}, h('button',{onclick:()=>{ setAdminPassword(f,true); }},'Speichern & Weiter')));
+  wrap.appendChild(h('div',{class:'actions'}, h('button',{onclick:()=>{ setAdminPassword(f,true); }},'Save & Continue')));
       } else if(needsLogin){
-        wrap.appendChild(h('h1',{},'Anmeldung'));
-        wrap.appendChild(h('p',{},'Gib das bestehende Admin-Passwort ein, um fortzufahren.'));
+  wrap.appendChild(h('h1',{},'Login'));
+  wrap.appendChild(h('p',{},'Enter the existing admin password to continue.'));
         const f=h('form',{onsubmit:e=>{ e.preventDefault(); }});
-        f.appendChild(field('Passwort','pw','password',''));
+  f.appendChild(field('Password','pw','password',''));
         wrap.appendChild(f);
         const onLogin = async ()=>{
-          const data=Object.fromEntries(new FormData(f).entries()); const pw=(data.pw||'').trim(); if(!pw){ toast('Passwort eingeben','warn'); return; }
-          try{ await api('/api/auth/login',{method:'POST',body:JSON.stringify({password:pw})}); toast('Angemeldet','success'); await refreshDashboard(true); State.step=2; render(); }
-          catch(e){ toast('Falsches Passwort','error'); }
+          const data=Object.fromEntries(new FormData(f).entries()); const pw=(data.pw||'').trim(); if(!pw){ toast('Enter password','warn'); return; }
+          try{ await api('/api/auth/login',{method:'POST',body:JSON.stringify({password:pw})}); toast('Logged in','success'); await refreshDashboard(true); State.step=2; render(); }
+          catch(e){ toast('Wrong password','error'); }
         };
-        wrap.appendChild(h('div',{class:'actions'}, h('button',{onclick:onLogin},'Anmelden & Weiter')));
+  wrap.appendChild(h('div',{class:'actions'}, h('button',{onclick:onLogin},'Login & Continue')));
       } else {
         // weder neu setzen noch Login nötig -> weiter
         State.step=2; render(); return;
       }
     } else if(State.step===2){
       // Address & location
-      wrap.appendChild(h('h1',{},'Adresse & Standort'));
-  wrap.appendChild(h('p',{},'Adresse bestimmt Zeitzone und Wetter-Region.'));
+    wrap.appendChild(h('h1',{},'Address & Location'));
+    wrap.appendChild(h('p',{},'Address determines time zone and weather region.'));
       if(State.dashboard){
         wrap.appendChild(h('div',{class:'card'},
-          h('p',{},'WLAN-Verbindung erfolgreich. Gerät erreichbar unter:'),
+          h('p',{},'Wi‑Fi connection successful. Device reachable at:'),
           h('ul',{},
-            h('li',{},'http://'+(State.dashboard.hostname? State.dashboard.hostname.toLowerCase() : 'remindikids')),
-            h('li',{},'IP: '+(State.dashboard.ip||'-'))
+            h('li',{}, 'http://'+(State.dashboard.hostname? State.dashboard.hostname.toLowerCase() : 'remindikids')+'/'),
+            h('li',{}, 'IP: '+(State.dashboard.ip||'-'))
           ),
-          h('p',{class:'small muted'},'Füge die Seite am besten jetzt zu deinen Favoriten hinzu.')
+          h('p',{class:'small muted'},'Tip: bookmark this page now for quick access.')
         ));
       }
   if(!State.selectedAddress) State.selectedAddress = State.dashboard?.address||'';
@@ -232,16 +255,16 @@
   if(!State.addrCity) State.addrCity = State.dashboard?.city||'';
   if(!State.addrCountry) State.addrCountry = State.dashboard?.country||'DE';
   form.appendChild(h('div',{class:'field-row'},
-    h('label',{class:'field compact'},'PLZ',h('input',{name:'postalCode',placeholder:'12345',value:State.addrPostal,oninput:e=>{State.addrPostal=e.target.value;}})),
-    h('label',{class:'field compact'},'Stadt',h('input',{name:'city',required:true,placeholder:'Stadt',value:State.addrCity,oninput:e=>{State.addrCity=e.target.value;}})),
-    h('label',{class:'field compact'},'Land',h('input',{name:'country',placeholder:'DE',value:State.addrCountry,oninput:e=>{State.addrCountry=e.target.value;}}))
+  h('label',{class:'field compact'},'ZIP',h('input',{name:'postalCode',placeholder:'12345',value:State.addrPostal,oninput:e=>{State.addrPostal=e.target.value;}})),
+  h('label',{class:'field compact'},'City',h('input',{name:'city',required:true,placeholder:'City',value:State.addrCity,oninput:e=>{State.addrCity=e.target.value;}})),
+  h('label',{class:'field compact'},'Country',h('input',{name:'country',placeholder:'DE',value:State.addrCountry,oninput:e=>{State.addrCountry=e.target.value;}}))
   ));
   // Search button & results
   form.appendChild(h('div',{class:'actions'},
-    h('button',{type:'button',class:'secondary',onclick:citySearch},'Orte suchen')
+  h('button',{type:'button',class:'secondary',onclick:citySearch},'Search places')
   ));
   if(State.cityResults && State.cityResults.length){
-    const list=h('div',{class:'card'}, h('p',{},'Treffer auswählen:'),
+  const list=h('div',{class:'card'}, h('p',{},'Select a result:'),
       ...State.cityResults.map(r=> h('button',{class:'secondary',onclick:()=>selectCityResult(r)}, `${r.name} (${r.admin1||''} ${r.country||''}) ${r.latitude.toFixed(2)},${r.longitude.toFixed(2)}`))
     );
     form.appendChild(list);
@@ -249,61 +272,61 @@
   // Zeitzone & Koordinaten werden aus gewähltem Suchtreffer übernommen (kein separates Feld mehr)
   if(State.selectedCityResult){
     form.appendChild(h('div',{class:'card small'},
-      h('p',{},'Ausgewählt: '+State.selectedCityResult.name+' ('+(State.selectedCityResult.admin1||'')+' '+(State.selectedCityResult.country||'')+')'),
+  h('p',{},'Selected: '+State.selectedCityResult.name+' ('+(State.selectedCityResult.admin1||'')+' '+(State.selectedCityResult.country||'')+')'),
       h('p',{class:'small muted'},'TZ: '+State.selectedCityResult.timezone+'  '+State.selectedCityResult.latitude.toFixed(2)+','+State.selectedCityResult.longitude.toFixed(2))
     ));
     // Save button only after a selection has been made
     form.appendChild(h('div',{class:'actions'},
-      h('button',{type:'submit'},'Speichern')
+  h('button',{type:'submit'},'Save')
     ));
   }
       wrap.appendChild(form);
   } else if(State.step===3){
-      wrap.appendChild(h('h1',{},'Termine & Geburtstage'));
-      wrap.appendChild(h('p',{},'Lege wiederkehrende oder einzelne Termine sowie Geburtstage an. Dies kann auch später in den Einstellungen erfolgen.'));
+  wrap.appendChild(h('h1',{},'Events & Birthdays'));
+  wrap.appendChild(h('p',{},'Create recurring or single events and birthdays. You can also do this later in Settings.'));
       // Simple inline forms (reuse helper builders later in settings view)
       const section=h('div',{class:'grid'});
       // Birthday form
       const fb=h('form',{onsubmit:e=>{e.preventDefault();addBirthdayWizard(fb);}});
   fb.appendChild(fieldInline('Name','birthday_name','text',State.draftBirthday.name||'', 'birthday_name'));
   fb.querySelector('input[name=birthday_name]').addEventListener('input',e=>{State.draftBirthday.name=e.target.value;});
-  fb.appendChild(fieldInline('Geburtstag','birthday_date','date',State.draftBirthday.date||'', 'birthday_date'));
+  fb.appendChild(fieldInline('Birthday','birthday_date','date',State.draftBirthday.date||'', 'birthday_date'));
   fb.querySelector('input[name=birthday_date]').addEventListener('input',e=>{State.draftBirthday.date=e.target.value;});
-      fb.appendChild(h('div',{class:'actions'},h('button',{type:'submit'},'Geburtstag hinzufügen')));
-      section.appendChild(h('div',{class:'card'},h('header',{},h('h3',{},'Geburtstag')),fb));
+  fb.appendChild(h('div',{class:'actions'},h('button',{type:'submit'},'Add birthday')));
+  section.appendChild(h('div',{class:'card'},h('header',{},h('h3',{},'Birthday')),fb));
       // Single event form
   const fs=h('form',{onsubmit:e=>{e.preventDefault();addSingleWizard(fs);}});
   fs.appendChild(fieldInline('Name','single_name','text',State.draftSingle.name||'', 'single_name'));
   fs.querySelector('input[name=single_name]').addEventListener('input',e=>{State.draftSingle.name=e.target.value;});
-  fs.appendChild(fieldInline('Datum','single_date','date',State.draftSingle.date||'', 'single_date'));
+  fs.appendChild(fieldInline('Date','single_date','date',State.draftSingle.date||'', 'single_date'));
   fs.querySelector('input[name=single_date]').addEventListener('input',e=>{State.draftSingle.date=e.target.value;});
   const singleColorChooser=colorChooser('color',State.draftSingle.color||'#ff8800');
   singleColorChooser.addEventListener('input',e=>{ if(e.target && e.target.name==='color'){ State.draftSingle.color=e.target.value; }});
-  fs.appendChild(labelWrap('Farbe',singleColorChooser));
-      fs.appendChild(h('div',{class:'actions'},h('button',{type:'submit'},'Einmaligen Termin hinzufügen')));
-      section.appendChild(h('div',{class:'card'},h('header',{},h('h3',{},'Einmaliger Termin')),fs));
+  fs.appendChild(labelWrap('Color',singleColorChooser));
+  fs.appendChild(h('div',{class:'actions'},h('button',{type:'submit'},'Add single event')));
+  section.appendChild(h('div',{class:'card'},h('header',{},h('h3',{},'Single event')),fs));
       // Series event form
   const fser=h('form',{onsubmit:e=>{e.preventDefault();addSeriesWizard(fser);}});
   fser.appendChild(fieldInline('Name','series_name','text',State.draftSeries.name||'', 'series_name'));
   fser.querySelector('input[name=series_name]').addEventListener('input',e=>{State.draftSeries.name=e.target.value;});
       // recurrence select
       const recurSel=h('select',{name:'recur',onchange:e=>{State.draftSeries.recur=e.target.value;toggleMonthlyPos(fser);}},
-        h('option',{value:'weekly'},'Wöchentlich'),
-        h('option',{value:'biweekly'},'14-tägig'),
-        h('option',{value:'monthly'},'Monatlich')
+        h('option',{value:'weekly'},'Weekly'),
+        h('option',{value:'biweekly'},'Bi‑weekly'),
+        h('option',{value:'monthly'},'Monthly')
       );
-      fser.appendChild(labelWrap('Wiederholung',recurSel));
+      fser.appendChild(labelWrap('Recurrence',recurSel));
       // monthly position select
       const mPosSel=h('select',{name:'monthly_pos',style:'display:none',onchange:e=>{State.draftSeries.monthly_pos=e.target.value;}},
         h('option',{value:''},'- Position -'),
-        h('option',{value:'1'},'Erster'),
-        h('option',{value:'2'},'Zweiter'),
-        h('option',{value:'3'},'Dritter'),
-        h('option',{value:'4'},'Vierter')
+        h('option',{value:'1'},'First'),
+        h('option',{value:'2'},'Second'),
+        h('option',{value:'3'},'Third'),
+        h('option',{value:'4'},'Fourth')
       );
-      fser.appendChild(labelWrap('Monats-Pos',mPosSel));
+      fser.appendChild(labelWrap('Monthly pos',mPosSel));
       // weekdays checkboxes
-      const wdays=['Mo','Di','Mi','Do','Fr','Sa','So'];
+  const wdays=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
       const wdWrap=h('div',{class:'weekday-select'});
       wdays.forEach((lbl,i)=>{
         const idx=i+1; // 1..7
@@ -311,24 +334,24 @@
         const cb=h('label',{class:'wd'},h('input',{type:'checkbox',value:String(idx),name:'wd',checked:checked?true:false}),lbl);
         wdWrap.appendChild(cb);
       });
-      fser.appendChild(labelWrap('Wochentage',wdWrap));
+  fser.appendChild(labelWrap('Weekdays',wdWrap));
       const seriesColorChooser=colorChooser('color',State.draftSeries.color||'#33aaff');
       seriesColorChooser.addEventListener('input',e=>{ if(e.target && e.target.name==='color'){ State.draftSeries.color=e.target.value; }});
-      fser.appendChild(labelWrap('Farbe',seriesColorChooser));
-      fser.appendChild(h('div',{class:'actions'},h('button',{type:'submit'},'Serientermin hinzufügen')));
-      section.appendChild(h('div',{class:'card'},h('header',{},h('h3',{},'Serientermin')),fser));
+  fser.appendChild(labelWrap('Color',seriesColorChooser));
+  fser.appendChild(h('div',{class:'actions'},h('button',{type:'submit'},'Add recurring event')));
+  section.appendChild(h('div',{class:'card'},h('header',{},h('h3',{},'Recurring event')),fser));
       // Apply stored recurrence & monthly pos
       setTimeout(()=>{ recurSel.value=State.draftSeries.recur||'weekly'; toggleMonthlyPos(fser); if(recurSel.value==='monthly' && State.draftSeries.monthly_pos){ mPosSel.style.display=''; mPosSel.value=State.draftSeries.monthly_pos; } },0);
       // Update weekday draft on change
       fser.addEventListener('change',e=>{ if(e.target && e.target.name==='wd'){ State.draftSeries.weekdays = collectWeekdays(fser); }});
       wrap.appendChild(section);
       wrap.appendChild(h('div',{class:'actions'},
-        h('button',{onclick:()=>{ sendWizardStage('done'); State.step=4; render(); }},'Fertig')
+        h('button',{onclick:()=>{ sendWizardStage('done'); State.step=4; render(); }},'Done')
       ));
     } else if(State.step===4){
-      wrap.appendChild(h('h1',{},'Fertig'));
-      wrap.appendChild(h('p',{},'Die Konfiguration deiner Remindi-Kids ist abgeschlossen.'));
-      wrap.appendChild(h('div',{class:'actions'},h('button',{onclick:()=>{ localStorage.setItem('rcWizardDone','1'); sendWizardStage('done'); State.wizardMode=false; State.view='Dashboard'; render(); }},'Zum Dashboard')));
+      wrap.appendChild(h('h1',{},'All set'));
+      wrap.appendChild(h('p',{},'Your RemindiKids setup is complete.'));
+      wrap.appendChild(h('div',{class:'actions'},h('button',{onclick:()=>{ localStorage.setItem('rcWizardDone','1'); sendWizardStage('done'); State.wizardMode=false; State.view='Dashboard'; render(); }},'Go to Dashboard')));
     }
     app.appendChild(wrap);
     // Versuche Fokus wiederherzustellen
@@ -346,7 +369,7 @@
       h('h1',{},'RemindiKids'),
       State.dashboard?.apMode? h('span',{class:'badge',style:'background:#b71c1c'},'AP MODE'):null,
       h('nav',{class:'tabs'},
-  ['Dashboard','Einstellungen'].map(name=>
+  ['Dashboard','Settings'].map(name=>
           h('button',{class: State.view===name? 'active':'',onclick:()=>{State.view=name;render();}},name)
         )
       )
@@ -356,7 +379,7 @@
     const main=h('main');
     if(State.view==='Dashboard'){
       main.appendChild(viewDashboard());
-    } else if(State.view==='Einstellungen'){
+  } else if(State.view==='Settings'){
       main.appendChild(viewSettingsHub());
     }
     // Logout nur im Dashboard und unten über dem Footer anzeigen
@@ -391,8 +414,8 @@
     const g=h('div',{class:'cards'});
     // Anzeige Box
     const tagsWrap=h('div',{class:'tags'});
-    // Map internal names to human labels and filter allowed symbols
-  const labelMap={ S1:'Morgen', S2:'Vormittag', S3:'Mittag', S4:'Nachmittag', S5:'Abend', THERMO:'Thermometer', MOND:'Mond', REGEN:'Regen', RUCKSACK:'Rucksack', HAUS:'Haus', KALENDER:'Kalender', BAUM:'Baum', GESCHENK:'Geschenk' };
+      // Map internal names to human labels and filter allowed symbols
+  const labelMap={ S1:'Morning', S2:'Forenoon', S3:'Noon', S4:'Afternoon', S5:'Evening', THERMO:'Thermometer', MOND:'Moon', REGEN:'Rain', RUCKSACK:'Backpack', HAUS:'Home', KALENDER:'Calendar', BAUM:'Tree', GESCHENK:'Gift' };
     function hexToRgb(hex){ if(!hex) return {r:0,g:0,b:0}; let h=hex.trim(); if(h[0]==='#') h=h.slice(1); if(h.length===3){ h=h.split('').map(c=>c+c).join(''); } const num=parseInt(h,16); return {r:(num>>16)&255,g:(num>>8)&255,b:num&255}; }
     function isLight(hex){ const {r,g,b}=hexToRgb(hex); // sRGB luminance
       const srgb=(v)=>{ v/=255; return v<=0.03928? v/12.92 : Math.pow((v+0.055)/1.055,2.4); };
@@ -409,77 +432,135 @@
         const tag=h('span',{class:'word-tag',style},label);
         tagsWrap.appendChild(tag);
       });
-      if(!items.length){ tagsWrap.appendChild(h('span',{class:'muted'},'Keine Symbole aktiv')); }
+      if(!items.length){ tagsWrap.appendChild(h('span',{class:'muted'},'No symbols active')); }
     } else {
-      tagsWrap.appendChild(h('span',{class:'muted'},'Keine Daten'));
+      tagsWrap.appendChild(h('span',{class:'muted'},'No data'));
     }
     // Strip leading 'KIDS' keyword from phrase for display
     let phrase = State.dashboard?.phrase || '—';
     if(typeof phrase==='string') phrase = phrase.replace(/^KIDS\s*/i,'').trim();
     const phraseEl=h('div',{class:'phrase'}, phrase);
-    g.appendChild(card('Anzeige',h('div',{}, phraseEl, tagsWrap)));
+  g.appendChild(card('Display',h('div',{}, phraseEl, tagsWrap)));
     // Services Box mit grünen/roten Kreisen
     const services=h('div',{},
-      serviceLine('Uhrzeit', State.dashboard?.timeSync),
-      serviceLine('Wetter', State.dashboard?.weather_ok),
-      serviceLine('Termine', State.dashboard?.birthdays)
+  serviceLine('Time', State.dashboard?.timeSync),
+      serviceLine('Weather', State.dashboard?.weather_ok),
+      serviceLine('Events', State.dashboard?.birthdays)
     );
-    g.appendChild(card('Services', services, h('button',{class:'secondary',onclick:refreshDashboard},'Aktualisieren')));
+    g.appendChild(card('Services', services, h('button',{class:'secondary',onclick:refreshDashboard},'Refresh')));
     return g;
   }
   function serviceLine(label,ok){ return h('div',{class:'inline'},statusDot(ok===true),h('span',{},label)); }
   function statusLine(label,val){
-    let ok=null; if(typeof val==='boolean') ok=val; if(label==='Aktuelle Zeit') ok=val && val!=='--:--';
+  let ok=null; if(typeof val==='boolean') ok=val; if(label==='Current time' || label==='Time') ok=val && val!=='--:--';
     return h('div',{class:'inline'},statusDot(ok),h('span',{},label+': '+(val==null?'?':val)));
   }
 
   // Settings hub with subtabs
   function viewSettingsHub(){
-    if(!State.subView || State.subView==='Allgemein') State.subView='Gerät';
+    if(!State.subView || State.subView==='Allgemein') State.subView='Device';
     const wrap=h('div',{});
-  const tabs=['Gerät','Helligkeit','Farben','Termine','Zeit'];
+  const tabs=['Device','Brightness','Colors','Events','Time'];
     // Ensure valid tab selection
-    if(!tabs.includes(State.subView)) State.subView='Gerät';
-    wrap.appendChild(h('div',{class:'subtabs'}, tabs.map(t=> h('button',{class:State.subView===t?'active':'',onclick:()=>{State.subView=t; if(t==='Termine' && !State.eventsLoaded) loadEvents(); render();}},t))));
+    if(!tabs.includes(State.subView)) State.subView='Device';
+    wrap.appendChild(h('div',{class:'subtabs'}, tabs.map(t=> h('button',{class:State.subView===t?'active':'',onclick:()=>{State.subView=t; if(t==='Events' && !State.eventsLoaded) loadEvents(); render();}},t))));
     let content;
     switch(State.subView){
-      case 'Gerät': content=viewDevice(); break;
-    case 'Helligkeit': content=viewBrightness(); break;
-  case 'Farben': content=viewColors(); break;
-  case 'Termine': content=viewEvents(); break;
-  case 'Zeit': content=viewTime(); break;
+      case 'Device': content=viewDevice(); break;
+    case 'Brightness': content=viewBrightness(); break;
+  case 'Colors': content=viewColors(); break;
+  case 'Events': content=viewEvents(); break;
+  case 'Time': content=viewTime(); break;
     }
     wrap.appendChild(content);
     return wrap;
   }
 
-  // --- Termine / Events Ansicht ---
+  // --- Events view ---
   function viewEvents(){
     const wrap=h('div',{class:'grid'});
     const actions=h('div',{class:'actions'},
-      h('button',{class:'secondary',onclick:loadEvents},'Aktualisieren'));
+      h('button',{class:'secondary',onclick:loadEvents},'Refresh'));
     // Liste laden/anzeigen
     const list=h('div',{});
-    if(!State.eventsLoaded){ list.appendChild(h('p',{},'Lade...')); setTimeout(loadEvents,0); }
+    // Local helpers for Events view
+    const wdNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    function pad2(n){ return String(n).padStart(2,'0'); }
+    function formatDateYMD(iso){
+      // Expect YYYY-MM-DD; fallback to original if parse fails
+      if(!iso || typeof iso!=='string') return iso||'';
+      const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+      if(!m) return iso;
+      const [_,y,mo,d]=m; return `${d}.${mo}.${y}`;
+    }
+    function hexToRgb(hex){ if(!hex) return {r:0,g:0,b:0}; let h=hex.trim(); if(h[0]==='#') h=h.slice(1); if(h.length===3){ h=h.split('').map(c=>c+c).join(''); } const num=parseInt(h,16); return {r:(num>>16)&255,g:(num>>8)&255,b:num&255}; }
+    function isLight(hex){ const {r,g,b}=hexToRgb(hex); const srgb=v=>{ v/=255; return v<=0.03928? v/12.92 : Math.pow((v+0.055)/1.055,2.4); }; const L=0.2126*srgb(r)+0.7152*srgb(g)+0.0722*srgb(b); return L>0.6; }
+    function nameChip(label,col){ const c=col||'#9ca3af'; const light=isLight(c); const style=`background:${c};border:1px solid ${c};color:${light?'#111':'#fff'}`; return h('span',{class:'word-tag',style},label||''); }
+    function typeIcon(t){
+      const type=(t||'').toLowerCase();
+      if(type==='birthday'){
+        // gift icon
+        return h('span',{class:'ev-icon',title:'Birthday',html:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 7h-2.18A3 3 0 0 0 12 5.83 3 3 0 0 0 6.18 7H4a1 1 0 0 0-1 1v3h18V8a1 1 0 0 0-1-1Zm-9-1a1 1 0 1 1 0-2c1.66 0 3 1.34 3 3v1h-1a2 2 0 0 1-2-2Zm-5 1a2 2 0 1 1 2-2 2 2 0 0 1-2 2ZM3 13v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6Zm9 0v8h-2v-8Z"/></svg>'});
+      }
+      // calendar icon (default)
+      return h('span',{class:'ev-icon',title:'Event',html:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 2a1 1 0 0 0-1 1v1H5a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-1V3a1 1 0 1 0-2 0v1H8V3a1 1 0 0 0-1-1Zm12 8H5v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1Zm-1-5a1 1 0 0 1 1 1v2H5V6a1 1 0 0 1 1-1Z"/></svg>'});
+    }
+    function formatRecur(ev){
+      const t=(ev.type||'').toLowerCase();
+      if(t==='birthday') return 'yearly';
+      const r=(ev.recur||'').toLowerCase();
+      if(!r) return '';
+      if(r==='weekly'){
+        const days=Array.isArray(ev.weekdays)? ev.weekdays.map(n=>wdNames[(Math.max(1,Math.min(7,n))-1)]).join(','):'';
+        return 'weekly'+(days?` (${days})`:'');
+      }
+      if(r==='biweekly'){
+        const days=Array.isArray(ev.weekdays)? ev.weekdays.map(n=>wdNames[(Math.max(1,Math.min(7,n))-1)]).join(','):'';
+        return 'bi-weekly'+(days?` (${days})`:'');
+      }
+      if(r==='monthly'){
+        const pos=ev.monthly_pos? `${ev.monthly_pos}.` : '';
+        let wd=''; if(Array.isArray(ev.weekdays) && ev.weekdays.length){ const n=Math.max(1,Math.min(7,ev.weekdays[0])); wd=wdNames[n-1]; }
+        const extra=(pos||wd)?` (${pos}${wd})`:''; return 'monthly'+extra;
+      }
+      return r;
+    }
+    if(!State.eventsLoaded){ list.appendChild(h('p',{},'Loading...')); setTimeout(loadEvents,0); }
     else if(Array.isArray(State.events) && State.events.length){
       State.events.forEach(ev=>{
+        const typeCol = h('div',{class:'ev-col ev-type'}, typeIcon(ev.type));
+        const nameCol = h('div',{class:'ev-col'}, nameChip(ev.name||'', ev.color));
+        const dateStr = ev.date ? formatDateYMD(ev.date) : (ev.month? `${pad2(ev.day)}.${pad2(ev.month)}` : '');
+        let recurStr = formatRecur(ev);
+        if(ev.type==='series' && ev.pause_until){
+          const todayIso=new Date().toISOString().substring(0,10);
+            if(todayIso < ev.pause_until){
+              recurStr += ' (paused until '+ev.pause_until+')';
+              if(ev.next_active) recurStr += ' → next: '+ev.next_active;
+            }
+        }
+        // Pause icon for paused series (calendar replaced with pause)
+        if(ev.type==='series' && ev.pause_until){
+          // Compare pause_until against today (ISO). If today < pause_until -> paused
+          try{ const todayIso=new Date().toISOString().substring(0,10); if(todayIso < ev.pause_until){
+            typeCol.innerHTML='<span class="ev-icon" title="Paused"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 4a2 2 0 0 0-2 2v12a2 2 0 0 0 4 0V6a2 2 0 0 0-2-2Zm6 0a2 2 0 0 0-2 2v12a2 2 0 0 0 4 0V6a2 2 0 0 0-2-2Z"/></svg></span>';
+          }}catch(_){/*ignore*/}
+        }
         const row=h('div',{class:'event-row'},
-          h('div',{class:'ev-col'}, ev.type || 'event'),
-          h('div',{class:'ev-col'}, ev.name || ''),
-          h('div',{class:'ev-col'}, ev.date || (ev.month? (String(ev.day).padStart(2,'0')+'.'+String(ev.month).padStart(2,'0')) : '')),
-          h('div',{class:'ev-col'}, ev.recur || ''),
-          h('div',{class:'ev-col'}, ev.color || ''),
+          typeCol,
+          nameCol,
+          h('div',{class:'ev-col'}, dateStr),
+          h('div',{class:'ev-col'}, recurStr),
           h('div',{class:'ev-col'},
-            h('button',{class:'mini',onclick:()=>{ const t=(ev.type||'single'); openEventModal(t, ev); }},'Bearbeiten'),
-            h('button',{class:'mini danger',style:'margin-left:6px',onclick:()=>deleteEvent(ev.id)},'Löschen')
+            h('button',{class:'mini',onclick:()=>{ const t=(ev.type||'single'); openEventModal(t, ev); }},'Edit')
           )
         );
         list.appendChild(row);
       });
     } else {
-      list.appendChild(h('p',{},'Keine Termine vorhanden.'));
+      list.appendChild(h('p',{},'No events yet.'));
     }
-    wrap.appendChild(card('Termine',list,actions));
+    wrap.appendChild(card('Events',list,actions));
     // Formulare hinzufügen (Geburtstag, Einzel, Serie)
     const forms=h('div',{},
       buildBirthdayCard(),
@@ -490,43 +571,43 @@
     return wrap;
   }
 
-  // Small helper cards for adding events (used in Termine view)
+  // Small helper cards for adding events (used in Events view)
   function buildBirthdayCard(){
-    const info=h('p',{class:'small muted'},'Jährlich wiederkehrend (z. B. Geburtstag).');
+    const info=h('p',{class:'small muted'},'Repeats yearly (e.g., birthdays).');
     const actions=h('div',{class:'actions'},
-      h('button',{onclick:()=>openEventModal('birthday', null)},'Neu'));
-    return card('Geburtstag', h('div',{}, info), actions);
+      h('button',{onclick:()=>openEventModal('birthday', null)},'Add'));
+    return card('Birthday', h('div',{}, info), actions);
   }
   function buildSingleCard(){
-    const info=h('p',{class:'small muted'},'Einmaliger Termin mit Datum und optionaler Farbe.');
+    const info=h('p',{class:'small muted'},'One-time event with date and optional color.');
     const actions=h('div',{class:'actions'},
-      h('button',{onclick:()=>openEventModal('single', null)},'Neu'));
-    return card('Einzeltermin', h('div',{}, info), actions);
+      h('button',{onclick:()=>openEventModal('single', null)},'Add'));
+    return card('Single', h('div',{}, info), actions);
   }
   function buildSeriesCard(){
-    const info=h('p',{class:'small muted'},'Serientermin: wöchentlich, 14-tägig oder monatlich (mit Wochentagsauswahl).');
+    const info=h('p',{class:'small muted'},'Recurring: weekly, bi‑weekly or monthly (with weekdays).');
     const actions=h('div',{class:'actions'},
-      h('button',{onclick:()=>openEventModal('series', null)},'Neu'));
-    return card('Serie', h('div',{}, info), actions);
+      h('button',{onclick:()=>openEventModal('series', null)},'Add'));
+    return card('Recurring', h('div',{}, info), actions);
   }
 
   function viewDevice(){
     const d=State.dashboard||{};
     const wrap=h('div',{class:'grid'});
-    // Reihenfolge: Geräteinfo, Software Update, Wort UPDATE, Neustart, Werkseinstellungen
+    // Order: Device info, Software Update, Update-moon, Restart, Factory reset
     const info=h('div',{},
       lineKV('IP', d.ip||'-'),
-      lineKV('WLAN', [ (d.wifi_ssid? d.wifi_ssid:'-'), rssiIcon(d.wifi_rssi) ]),
+      lineKV('Wi‑Fi', [ (d.wifi_ssid? d.wifi_ssid:'-'), rssiIcon(d.wifi_rssi) ]),
       lineKV('Uptime', formatUptime(d.uptime_ms)),
-      lineKV('Zeitzone', d.timezone||'-'),
+      lineKV('Time zone', d.timezone||'-'),
       lineKV('Firmware', d.version||'?')
     );
-    wrap.appendChild(card('Geräteinfo',info));
+    wrap.appendChild(card('Device info',info));
     wrap.appendChild(buildOtaCard());
-    // UPDATE Wort Toggle (Style analog Wetter AUTO/AUS Buttons -> verwenden Klasse inline-btns und .mini Buttons)
-    const updMode = (d.updateWordMode)|| (d.weatherWords && d.weatherWords.UPDATE && d.weatherWords.UPDATE.mode) || 'auto';
+    // Yellow moon when update available (old "UPDATE" word) can be toggled
+    const updMode = (d.updateWordMode)|| (d.weatherWords && d.weatherWords.MOND && d.weatherWords.MOND.mode) || 'auto';
     const updWrap=h('div',{});
-  const btnRow=h('div',{class:'inline-btns mode-buttons'});
+    const btnRow=h('div',{class:'inline-btns mode-buttons'});
     function renderUpdBtns(){
       btnRow.innerHTML='';
       [['auto','AUTO'],['disabled','AUS']].forEach(([m,label])=>{
@@ -538,51 +619,51 @@
     const saveBtn=h('button',{onclick:async()=>{
       const mode=updWrap.dataset.mode;
       try {
-        await api('/api/settings/weather-words',{method:'POST',body:JSON.stringify({ UPDATE:{ enabled: mode==='auto' } })});
-        toast('UPDATE Wort gespeichert','success');
+        await api('/api/settings/weather-words',{method:'POST',body:JSON.stringify({ MOND:{ enabled: mode==='auto' } })});
+        toast('Update-moon setting saved','success');
         await refreshDashboard(true);
-      } catch(e){ toast('Fehler beim Speichern','error'); }
-    }},'Speichern');
-    updWrap.appendChild(h('p',{class:'small'},'Wort "UPDATE" anzeigen bei verfügbarem/aktivem Update.'));
+      } catch(e){ toast('Save failed','error'); }
+    }},'Save');
+    updWrap.appendChild(h('p',{class:'small'},'Show a yellow moon when an update is available/active (AUTO or OFF).'));
     updWrap.appendChild(btnRow);
     updWrap.appendChild(h('div',{class:'actions'},saveBtn));
-    wrap.appendChild(card('Wort UPDATE', updWrap));
-    const restartBox=h('div',{},h('p',{},'Neustart des Geräts durchführen.'),h('button',{onclick:confirmRestart},'Neustart'));
-    wrap.appendChild(card('Neustart',restartBox));
+  wrap.appendChild(card('Update moon', updWrap));
+    const restartBox=h('div',{},h('p',{},'Restart the device.'),h('button',{onclick:confirmRestart},'Restart'));
+    wrap.appendChild(card('Restart',restartBox));
     const resetBox=h('div',{},
-      h('p',{},'Alle gespeicherten Konfigurationen und Daten werden dauerhaft gelöscht (WLAN, Adresse/Koordinaten, Termine/Geburtstage, Zusatzwörter, Debug-Log, OTA-Zustände).'),
-  h('p',{class:'small muted'},'Nach dem Reset startet das Gerät im Access-Point Modus (SSID: remindiKids-Setup, Passwort siehe Anleitung). Die Weboberfläche ist dann unter http://192.168.4.1 erreichbar.'),
-      h('button',{class:'danger',onclick:factoryResetConfirm},'Werkseinstellungen')
+      h('p',{},'All saved configuration and data will be erased (Wi‑Fi, address/coordinates, events/birthdays, extra words, debug log, OTA state).'),
+  h('p',{class:'small muted'},'After reset, the device starts in Access Point mode (SSID: remindiKids-Setup, see manual for password). The web UI is then available at http://192.168.4.1.'),
+      h('button',{class:'danger',onclick:factoryResetConfirm},'Factory reset')
     );
-    wrap.appendChild(card('Werkseinstellungen',resetBox));
+    wrap.appendChild(card('Factory reset',resetBox));
     return wrap;
   }
   function buildOtaCard(){
     const box=h('div',{});
     const st=State.otaStatus;
-    if(!st){ box.appendChild(h('p',{},'OTA Status wird geladen...')); loadOTAStatus(); return card('Software Update',box); }
+    if(!st){ box.appendChild(h('p',{},'Loading OTA status...')); loadOTAStatus(); return card('Software Update',box); }
     if(st.hasUpdate){
       if(st.metadataVersion){
-        box.appendChild(h('div',{class:'kv'},h('strong',{},'Verfügbare Version: '),h('span',{},st.metadataVersion)));
+        box.appendChild(h('div',{class:'kv'},h('strong',{},'Available version: '),h('span',{},st.metadataVersion)));
       }
       if(st.changelog){
-        box.appendChild(h('details',{},h('summary',{},'Changelog anzeigen'), h('pre',{style:'white-space:pre-wrap;font-size:0.75rem;'}, st.changelog)));
+        box.appendChild(h('details',{},h('summary',{},'Show changelog'), h('pre',{style:'white-space:pre-wrap;font-size:0.75rem;'}, st.changelog)));
       }
-      const btn=h('button',{class:'primary',onclick:()=>startOTAUpdate(btn,st.metadataVersion)},'Update installieren');
+      const btn=h('button',{class:'primary',onclick:()=>startOTAUpdate(btn,st.metadataVersion)},'Install update');
       box.appendChild(h('div',{class:'actions'},btn));
     } else {
       // Kein Update: aktuelle Version aus Dashboard falls vorhanden anzeigen
-      const cur=State.dashboard?.version || st.metadataVersion || 'unbekannt';
-      box.appendChild(h('p',{},'Firmware aktuell: '+cur));
+      const cur=State.dashboard?.version || st.metadataVersion || 'unknown';
+      box.appendChild(h('p',{},'Firmware up to date: '+cur));
     }
     if(localStorage.getItem('rcPendingUpdateTarget')){
-      box.appendChild(h('p',{class:'small'},'Update läuft – Bitte warten, Gerät startet neu...'));
+      box.appendChild(h('p',{class:'small'},'Updating – Please wait, device will reboot...'));
     }
     return card('Software Update', box);
   }
   async function loadOTAStatus(){ try { const s=await api('/api/ota/status'); State.otaStatus=s; } catch(e){} render(); }
   async function startOTAUpdate(btn,targetVersion){
-    if(!confirm('Update auf Version '+targetVersion+' installieren?')) return;
+    if(!confirm('Install update to version '+targetVersion+'?')) return;
     const done=setLoading(btn);
     try {
       const prevVer=State.dashboard?.version||'';
@@ -593,17 +674,17 @@
       }
       const r=await fetch('/api/ota/firmware',{method:'POST'});
       if(r.ok){
-        toast('Update gestartet – Bitte warten...');
-        btn.disabled=true; btn.textContent='Bitte warten...';
+        toast('Update started – Please wait...');
+        btn.disabled=true; btn.textContent='Please wait...';
         beginRebootWatch(true);
       } else {
-        toast('Update Start fehlgeschlagen','error');
+        toast('Update start failed','error');
         localStorage.removeItem('rcPendingUpdateTarget');
         localStorage.removeItem('rcPendingUpdatePrev');
         localStorage.removeItem('rcPendingUpdateTs');
       }
     } catch(e){
-      toast('Netzwerkfehler','error');
+      toast('Network error','error');
       localStorage.removeItem('rcPendingUpdateTarget');
       localStorage.removeItem('rcPendingUpdatePrev');
       localStorage.removeItem('rcPendingUpdateTs');
@@ -612,32 +693,32 @@
   async function setAdminPassword(form, proceed){
     const data=Object.fromEntries(new FormData(form).entries());
     const pw=(data.pw||'').trim(); const pw2=(data.pw2||'').trim();
-    if(pw.length<4){ toast('Passwort zu kurz','warn'); return; }
-    if(pw!==pw2){ toast('Passwörter stimmen nicht überein','error'); return; }
+    if(pw.length<4){ toast('Password too short','warn'); return; }
+    if(pw!==pw2){ toast('Passwords do not match','error'); return; }
     try{
   await api('/api/auth/set',{method:'POST',body:JSON.stringify({password:pw})});
-      toast('Passwort gesetzt','success');
+      toast('Password set','success');
       await refreshDashboard();
   if(proceed){ State.step=2; render(); }
     } catch(e){
       const msg=(e&&e.message)||'';
-      if(msg.startsWith('400')) toast('Passwort zu kurz oder ungültige Eingabe','error');
-      else if(msg.startsWith('401')){ toast('Passwort bereits gesetzt – bitte anmelden','warn'); await refreshDashboard(true); /* zeige Login */ State.step=1; render(); }
-      else toast('Fehler beim Setzen','error');
+      if(msg.startsWith('400')) toast('Password too short or invalid','error');
+      else if(msg.startsWith('401')){ toast('Password already set – please login','warn'); await refreshDashboard(true); /* show login */ State.step=1; render(); }
+      else toast('Failed to set password','error');
     }
   }
   function showLoginGate(){
     const existing=document.getElementById('login-gate'); if(existing) return;
     const gate=document.createElement('div'); gate.id='login-gate'; gate.className='login-gate';
     const box=document.createElement('div'); box.className='login-box';
-    const h2=document.createElement('h2'); h2.textContent='Anmeldung erforderlich'; box.appendChild(h2);
+    const h2=document.createElement('h2'); h2.textContent='Login required'; box.appendChild(h2);
     const form=document.createElement('form'); form.onsubmit=async (e)=>{ e.preventDefault(); const pw=form.querySelector('input[name=pw]').value; await doLogin(pw); };
-    const lbl=document.createElement('label'); lbl.className='field'; lbl.textContent='Passwort';
+    const lbl=document.createElement('label'); lbl.className='field'; lbl.textContent='Password';
     const inp=document.createElement('input'); inp.type='password'; inp.name='pw'; lbl.appendChild(inp);
     form.appendChild(lbl);
     const actions=document.createElement('div'); actions.className='actions';
-    const btn=document.createElement('button'); btn.type='submit'; btn.textContent='Anmelden'; actions.appendChild(btn);
-  const forgot=document.createElement('button'); forgot.type='button'; forgot.className='secondary'; forgot.textContent='Passwort vergessen'; forgot.onclick=()=>forgotPassword(); actions.appendChild(forgot);
+    const btn=document.createElement('button'); btn.type='submit'; btn.textContent='Login'; actions.appendChild(btn);
+  const forgot=document.createElement('button'); forgot.type='button'; forgot.className='secondary'; forgot.textContent='Forgot password'; forgot.onclick=()=>forgotPassword(); actions.appendChild(forgot);
     form.appendChild(actions);
     box.appendChild(form);
     gate.appendChild(box);
@@ -645,16 +726,16 @@
     setTimeout(()=>{ inp.focus(); },0);
   }
   async function doLogin(pw){
-    try{ await api('/api/auth/login',{method:'POST',body:JSON.stringify({password:pw})}); toast('Angemeldet','success'); await refreshDashboard(true); const gate=document.getElementById('login-gate'); if(gate) gate.remove(); } catch(e){ toast('Falsches Passwort','error'); }
+    try{ await api('/api/auth/login',{method:'POST',body:JSON.stringify({password:pw})}); toast('Logged in','success'); await refreshDashboard(true); const gate=document.getElementById('login-gate'); if(gate) gate.remove(); } catch(e){ toast('Wrong password','error'); }
   }
   async function logout(){ try{ await fetch('/api/auth/logout',{method:'POST'}); await refreshDashboard(true); showLoginGate(); }catch(e){} }
   async function forgotPassword(){
-    if(!confirm('Werkseinstellungen ausführen? Alle Daten gehen verloren.')) return;
+    if(!confirm('Perform factory reset? All data will be lost.')) return;
     try{
       await fetch('/api/settings/factory-reset/public',{method:'POST'});
     }catch(_){ /* ignore */ }
     // Zeige sofort Hinweis + Reboot-Watch
-    toast('Werkseinstellungen aktiviert. Gerät startet neu...','warn');
+    toast('Factory reset enabled. Device will reboot...','warn');
     beginRebootWatch(true);
   }
   function lineKV(k,v){
@@ -679,9 +760,9 @@
     return h('span',{class:'wifi-rssi',html:svg});
   }
   function formatUptime(ms){ if(!ms && ms!==0) return '-'; const s=Math.floor(ms/1000); const d=Math.floor(s/86400); const h=Math.floor((s%86400)/3600); const m=Math.floor((s%3600)/60); let out=''; if(d) out+=d+'d '; out+=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); return out; }
-  function confirmRestart(){ if(!confirm('Gerät wirklich neu starten?')) return; fetch('/api/restart',{method:'POST'}).then(()=>toast('Neustart ausgeführt')); }
+  function confirmRestart(){ if(!confirm('Really restart the device?')) return; fetch('/api/restart',{method:'POST'}).then(()=>toast('Restart triggered')); }
   function factoryResetConfirm(){
-    if(!confirm('Alle gespeicherten Konfigurationen und Daten werden dauerhaft gelöscht. Fortfahren?')) return;
+    if(!confirm('All saved configurations and data will be permanently deleted. Continue?')) return;
     factoryReset();
   }
 
@@ -691,14 +772,14 @@
   // Map rawBrightness (1..255) to percentage (1..100)
   const raw=State.dashboard?.rawBrightness||128;
   const pct=Math.min(100,Math.max(1, Math.round(raw*100/255)));
-  f.appendChild(h('label',{class:'field'},'Helligkeit',h('input',{type:'range',name:'brightnessPercent',min:1,max:100,value:pct,oninput:e=>{e.target.nextSibling.textContent=e.target.value+'%';}}),h('span',{},pct+'%')));
+  f.appendChild(h('label',{class:'field'},'Brightness',h('input',{type:'range',name:'brightnessPercent',min:1,max:100,value:pct,oninput:e=>{e.target.nextSibling.textContent=e.target.value+'%';}}),h('span',{},pct+'%')));
     const nightSel=h('select',{name:'night'},
-      h('option',{value:'off'},'Aus'),
-      h('option',{value:'on'},'An')
+      h('option',{value:'off'},'Off'),
+      h('option',{value:'on'},'On')
     );
     const currentNight = (State.dashboard?.nightModeRaw==='on')? 'on':'off';
     setTimeout(()=>{ nightSel.value=currentNight; toggleNightFields(); },0);
-    f.appendChild(h('label',{class:'field'},'Nachtmodus',nightSel));
+  f.appendChild(h('label',{class:'field'},'Night mode',nightSel));
     // Night schedule fields
     const nfWrap = h('div',{class:'night-fields'});
     const nh = State.dashboard?.nightStartHour ?? 22;
@@ -709,16 +790,16 @@
     nfWrap.appendChild(h('label',{class:'field'},'Start (HH:MM)',
       h('input',{type:'number',name:'nightStartHour',min:0,max:23,value:nh,style:'width:70px'}),
       h('input',{type:'number',name:'nightStartMinute',min:0,max:59,value:nm,style:'width:70px'})));
-    nfWrap.appendChild(h('label',{class:'field'},'Ende (HH:MM)',
+    nfWrap.appendChild(h('label',{class:'field'},'End (HH:MM)',
       h('input',{type:'number',name:'nightEndHour',min:0,max:23,value:eh,style:'width:70px'}),
       h('input',{type:'number',name:'nightEndMinute',min:0,max:59,value:em,style:'width:70px'})));
-    nfWrap.appendChild(h('label',{class:'field'},'Nacht-Helligkeit',h('input',{type:'range',name:'nightBrightness',min:1,max:255,value:nb,oninput:e=>{e.target.nextSibling.textContent=e.target.value;} }),h('span',{},nb)));
+  nfWrap.appendChild(h('label',{class:'field'},'Night brightness',h('input',{type:'range',name:'nightBrightness',min:1,max:255,value:nb,oninput:e=>{e.target.nextSibling.textContent=e.target.value;} }),h('span',{},nb)));
     f.appendChild(nfWrap);
     nightSel.onchange=()=>{ toggleNightFields(); };
     function toggleNightFields(){ nfWrap.style.display = (nightSel.value==='on')? 'block':'none'; }
   const baseColor = (State.dashboard?.color && /^#?[0-9a-fA-F]{6}$/.test(State.dashboard.color))? (State.dashboard.color.startsWith('#')? State.dashboard.color : '#'+State.dashboard.color) : '#ffffff';
-  f.appendChild(h('label',{class:'field'},'Uhrzeit',h('input',{type:'color',name:'color',value:baseColor}))); // renamed
-    c.appendChild(card('LED Einstellungen',f,h('button',{type:'submit'},'Übernehmen')));
+  f.appendChild(h('label',{class:'field'},'Clock',h('input',{type:'color',name:'color',value:baseColor}))); // renamed
+    c.appendChild(card('LED settings',f,h('button',{type:'submit'},'Apply')));
   // Removed 'Farben Zusatzwörter' card per request
     return c;
   }
@@ -731,22 +812,22 @@
     const night = Array.isArray(d.nightStartMinutes)? d.nightStartMinutes : [1200,1200,1200,1200,1200,1200,1200];
     const vac = !!(d.vacationMode||d.holidayMode);
     const f=h('form',{onsubmit:e=>{e.preventDefault();saveSchedule(f);}});
-    // Woche/Wochenende
+  // Week/Weekend
     const wdDay = Math.min(...day.slice(0,5));
     const wdNight = Math.min(...night.slice(0,5));
     const weDay = Math.min(day[5], day[6]);
     const weNight = Math.min(night[5], night[6]);
-    f.appendChild(h('label',{class:'field'},'Wochentag',
+    f.appendChild(h('label',{class:'field'},'Weekday',
       h('div',{class:'inline'},
         h('input',{type:'time',name:'wd_day',value: minutesToHHMM(wdDay)}),
         h('input',{type:'time',name:'wd_night',value: minutesToHHMM(wdNight)})
       )));
-    f.appendChild(h('label',{class:'field'},'Wochenende',
+    f.appendChild(h('label',{class:'field'},'Weekend',
       h('div',{class:'inline'},
         h('input',{type:'time',name:'we_day',value: minutesToHHMM(weDay)}),
         h('input',{type:'time',name:'we_night',value: minutesToHHMM(weNight)})
       )));
-    // Ferien toggle
+    // Vacation toggle
     const vacWrap=h('div',{class:'inline-btns mode-buttons',style:'margin-top:.75rem'});
     let vacState=vac?'on':'off';
     const hiddenVac=h('input',{type:'hidden',name:'vac',value: vac?'on':'off'});
@@ -758,17 +839,17 @@
     }
     function renderVac(){
       vacWrap.innerHTML='';
-      [['on','AN'],['off','AUS']].forEach(([v,l])=>{
+      [['on','ON'],['off','OFF']].forEach(([v,l])=>{
         const btn=h('button',{type:'button','data-mode':v,class:'mini'+(vacState===v?' active':''),onclick:()=>setVacMode(v)}, l);
         vacWrap.appendChild(btn);
       });
     }
     renderVac();
-    f.appendChild(h('div',{}, h('label',{},'Ferien'), vacWrap));
-    f.appendChild(h('div',{class:'actions'}, h('button',{type:'submit'},'Speichern')));
+  f.appendChild(h('div',{}, h('label',{},'Vacation'), vacWrap));
+  f.appendChild(h('div',{class:'actions'}, h('button',{type:'submit'},'Save')));
     // hidden input to submit current mode
     f.appendChild(hiddenVac);
-    wrap.appendChild(card('Zeitplan',f));
+  wrap.appendChild(card('Schedule',f));
     return wrap;
   }
   function minutesToHHMM(m){ const h=Math.floor((m||0)/60), mi=(m||0)%60; return String(h).padStart(2,'0')+':'+String(mi).padStart(2,'0'); }
@@ -780,7 +861,7 @@
       weekend:{ day: hhmmToMinutes(data.we_day), night: hhmmToMinutes(data.we_night) },
       holiday: (data.vac==='on')
     };
-    try{ await api('/api/time/schedule',{method:'POST',body:JSON.stringify(payload)}); toast('Gespeichert','success'); await refreshDashboard(true); } catch(e){ toast('Fehler','error'); }
+  try{ await api('/api/time/schedule',{method:'POST',body:JSON.stringify(payload)}); toast('Saved','success'); await refreshDashboard(true); } catch(e){ toast('Error','error'); }
   }
 
   function viewColors(){
@@ -789,16 +870,17 @@
     const sForm=h('form',{onsubmit:e=>{e.preventDefault();saveSymbols(sForm);}});
     const defs={
       THERMO:{label:'Thermometer', color:null},
-  RUCKSACK:{label:'Rucksack', color:'#00FF00'},
-      HAUS:{label:'Haus', color:'#00FF00'},
-      MOND:{label:'Mond', color:'#FFFFFF'},
-      BAUM:{label:'Baum', color:null},
-      GESCHENK:{label:'Geschenk', color:null},
-      KALENDER:{label:'Kalender', color:null},
-      REGEN:{label:'Regen', color:'#0000FF'}
+      RUCKSACK:{label:'Backpack', color:'#00FF00'},
+      HAUS:{label:'Home', color:'#00FF00'},
+      MOND:{label:'Moon', color:'#FFFFFF'},
+      BAUM:{label:'Tree', color:null},
+      GESCHENK:{label:'Gift', color:null},
+      KALENDER:{label:'Calendar', color:null},
+      REGEN:{label:'Rain', color:'#0000FF'},
+      SCHNEE:{label:'Snow', color:'#FFFFFF'}
     };
     // Order: Thermometer, Kalender, Baum, Geschenk, Mond, Regen, Rucksack, Haus
-    const keys=['THERMO','KALENDER','BAUM','GESCHENK','MOND','REGEN','RUCKSACK','HAUS'];
+  const keys=['THERMO','KALENDER','BAUM','GESCHENK','MOND','REGEN','SCHNEE','RUCKSACK','HAUS'];
     keys.forEach(k=>{
       let mode='auto'; let col=defs[k].color;
       const cur=State.dashboard?.symbols && State.dashboard.symbols[k];
@@ -814,11 +896,11 @@
             return h('button',{type:'button','data-key':k,'data-mode':val,class:active?'mini active':'mini',onclick:()=>{ setMode(k,val,wrap,sForm); }},label);
           }
           wrap.appendChild(makeBtn('AUTO','auto'));
-          wrap.appendChild(makeBtn('AUS','disabled'));
+          wrap.appendChild(makeBtn('OFF','disabled'));
           return wrap;
         })(),
         // Color picker only for supported symbols, shown after buttons
-        ((col!=null && (k==='RUCKSACK'||k==='HAUS'||k==='MOND'||k==='REGEN'))
+  ((col!=null && (k==='RUCKSACK'||k==='HAUS'||k==='MOND'||k==='REGEN'||k==='SCHNEE'))
           ? h('input',{type:'color',name:k+'_col',value: col||'#FFFFFF',style:'margin-left:8px'})
           : null)
       );
@@ -826,8 +908,8 @@
       // hidden input initial
       sForm.appendChild(h('input',{type:'hidden',name:k+'_mode',value:(mode==='auto'?'auto':'disabled')}));
     });
-    sForm.appendChild(h('div',{class:'actions'}, h('button',{type:'submit'},'Speichern')));
-    wrap.appendChild(card('Symbole', sForm));
+  sForm.appendChild(h('div',{class:'actions'}, h('button',{type:'submit'},'Save')));
+    wrap.appendChild(card('Symbols', sForm));
     return wrap;
   }
 
@@ -839,7 +921,7 @@
 
   async function saveSymbols(form){
     const data=Object.fromEntries(new FormData(form).entries());
-    const keys=['THERMO','KALENDER','BAUM','GESCHENK','MOND','REGEN','RUCKSACK','HAUS'];
+  const keys=['THERMO','KALENDER','BAUM','GESCHENK','MOND','REGEN','SCHNEE','RUCKSACK','HAUS'];
     const payload={};
     keys.forEach(k=>{
       const enabled = (data[k+'_mode']||'auto')==='auto';
@@ -847,20 +929,20 @@
       payload[k] = { enabled };
       if(col) payload[k].color = col;
     });
-    try{ await api('/api/settings/symbols',{method:'POST',body:JSON.stringify(payload)}); toast('Symbole gespeichert','success'); await refreshDashboard(true); } catch(e){ toast('Fehler beim Speichern','error'); }
+  try{ await api('/api/settings/symbols',{method:'POST',body:JSON.stringify(payload)}); toast('Symbols saved','success'); await refreshDashboard(true); } catch(e){ toast('Save error','error'); }
   }
   // MQTT UI entfernt
   function showEventInfo(type){
     let txt=''; let title='Info';
     if(type==='birthday'){
-      title='Geburtstage Info';
-      txt='Fügen Sie der RemindiClock eine Erinnerung für gespeicherte Geburtstage Ihrer Familie oder Freunde hinzu. Das Wort GEBURTSTAG leuchtet am Tag eines gespeicherten Geburtstag jedes Jahr am passenden Datum automatisch auf.';
+      title='Birthdays info';
+      txt='Add a reminder for stored birthdays of family or friends. The GEBURTSTAG word lights up automatically every year on the correct date.';
     } else if(type==='single'){
-      title='Einmaliger Termin Info';
-      txt='Lassen Sie sich an einen wichtigen Termin in Ihrer Wunschfarbe erinneren. Fügen Sie einen Termin hinzu und Ihre RemindiClock wird das Wort TERMIN am Tag des Termins anzeigen';
+      title='Single event info';
+      txt='Be reminded of an important appointment in your preferred color. Add an event and your RemindiClock will show the TERMIN word on the day.';
     } else if(type==='series'){
-      title='Serientermine Info';
-      txt='Lassen Sie sich an einen wiederkehrende Termine in Ihrer Wunschfarbe erinneren. Fügen Sie einen Serientermin hinzu und Ihre RemindiClock wird das Wort TERMIN am Tag des Termins anzeigen. Stellen Sie die Wiederholfrequenz des Termins (wöchentlich, 14-tägig oder monatlich) und den jeweiligen Wochentag ein. Für die monatliche Wiederholung geben Sie bitte zusätzlich an ob Sie am 1., 2., 3. oder 4. Auftreten des Wochentags im Monat an den Termin erinnert werden möchten.';
+      title='Recurring event info';
+      txt='Set up recurring reminders in your preferred color. Add a recurring event and your RemindiClock will show the TERMIN word on that day. Choose the repetition (weekly, bi-weekly, or monthly) and the weekday. For monthly, also choose if it should be the 1st, 2nd, 3rd or 4th occurrence of that weekday in the month.';
     }
     const body=document.createElement('div');
     txt.split(/\n\n/).forEach(p=>{ body.appendChild(document.createElement('p')).textContent=p; });
@@ -874,14 +956,14 @@
   f.appendChild(field('Broker','broker','text',dash.mqttBroker||''));
   f.appendChild(field('Port','port','number',dash.mqttPort!=null?dash.mqttPort:1883));
   f.appendChild(field('Client ID','client','text',dash.mqttClientId||'RemindiClock'));
-  f.appendChild(field('Benutzer','user','text',dash.mqttUser||''));
-  // Passwort nie vorausfüllen, Platzhalter anzeigen falls gesetzt
-  const passField=h('label',{class:'field'},'Passwort',h('input',{name:'pass',type:'password',placeholder: dash.mqttHasPassword? '********':''}));
+  f.appendChild(field('Username','user','text',dash.mqttUser||''));
+  // Never prefill password; show placeholder if already set
+  const passField=h('label',{class:'field'},'Password',h('input',{name:'pass',type:'password',placeholder: dash.mqttHasPassword? '********':''}));
   f.appendChild(passField);
-  f.appendChild(field('Basis Topic','base','text',dash.mqttBase||'RemindiClock'));
-  const saveBtn=h('button',{type:'submit'},'Speichern');
-  const infoBtn=h('button',{type:'button',class:'secondary',onclick:showMqttHelp},'MQTT Hilfe');
-  const c=card('MQTT Verbindung',f,h('div',{class:'actions'},saveBtn,infoBtn));
+  f.appendChild(field('Base topic','base','text',dash.mqttBase||'RemindiClock'));
+  const saveBtn=h('button',{type:'submit'},'Save');
+  const infoBtn=h('button',{type:'button',class:'secondary',onclick:showMqttHelp},'MQTT Help');
+  const c=card('MQTT connection',f,h('div',{class:'actions'},saveBtn,infoBtn));
   // After first render of card, inject restart hint if pending
   setTimeout(()=>{ if(State.mqttNeedsRestart) showRestartHint(); },0);
   return c;
@@ -891,35 +973,35 @@
   const dash=State.dashboard||{}; const base=dash.mqttBase||'RemindiClock';
     const wEx=base+'/word/BTC';
     const body=h('div',{},
-      h('p',{},'MQTT Struktur – Basis-Topic: '+base),
+      h('p',{},'MQTT structure – Base topic: '+base),
       h('pre',{class:'mono small',style:'white-space:pre-wrap'},
-        '# Topics je Wort (Beispiel BTC)\n'+
-        wEx+'/set    (Commands)\n'+
+        '# Topics per word (example BTC)\n'+
+        wEx+'/set    (commands)\n'+
         wEx+'/on     (retained true|false)\n'+
         wEx+'/mode   (retained mqtt|auto|disabled)\n'+
-        wEx+'/color  (retained #RRGGBB oder leer)\n\n'+
-        '# Befehle (Topic <base>/word/<WORD>/set)\n'+
-        'Einfacher String:\n'+
+        wEx+'/color  (retained #RRGGBB or empty)\n\n'+
+        '# Commands (topic <base>/word/<WORD>/set)\n'+
+        'Simple string:\n'+
         '  mqtt\n  auto\n  disabled\n  on\n  off\n  on #FF8800\n\n'+
-        'JSON Varianten:\n'+
+        'JSON variants:\n'+
         '  { "mode":"auto" }\n'+
         '  { "mode":"mqtt" }\n'+
         '  { "mode":"disabled" }\n'+
         '  { "command":"on", "color":"#00FF00" }\n'+
         '  { "command":"off" }\n\n'+
-        '# Regeln\n'+
-        '- mode setzt Betriebsart (auto|mqtt|disabled).\n'+
-        '- on/off (oder command) wirkt nur wenn aktueller Modus mqtt ist.\n'+
-        '- Farbe nur zusammen mit Einschalten (on oder command:on); Format #RRGGBB.\n'+
-        '- /on und /color spiegeln den echten Status (Auto Änderungen sofort).\n\n'+
-        '# Weitere Topics\n'+
+        '# Rules\n'+
+        '- mode sets operating mode (auto|mqtt|disabled).\n'+
+        '- on/off (or command) only works when current mode is mqtt.\n'+
+        '- color only together with turning on (on or command:on); format #RRGGBB.\n'+
+        '- /on and /color mirror the real status (auto changes immediately).\n\n'+
+        '# Additional topics\n'+
         base+'/status            (Online/Offline)\n'+
-        base+'/time              (Zeit HH:MM)\n'+
+        base+'/time              (current time HH:MM)\n'+
         base+'/brightness/set    (1-100)\n\n'+
         '# Home Assistant\n'+
-        'Nutze /on als state_topic, /mode für Verfügbarkeit/Modus, /color optional als Attribut.')
+        'Use /on as state_topic, /mode for availability/mode, /color optionally as attribute.')
     );
-    showModal('MQTT Hilfe', body);
+    showModal('MQTT Help', body);
   }
 
   // Generic modal helper (simple info modal)
@@ -963,36 +1045,61 @@
         catch(_){ }
         setTimeout(poll, 800);
       }; poll();
-    }catch(_){ State.scanning=false; toast('Scan fehlgeschlagen','error'); render(); }
+  }catch(_){ State.scanning=false; toast('Scan failed','error'); render(); }
   }
   function selectNetwork(ssid){ State.selectedSSID=ssid; render(); }
   async function connectWifi(form){
     const data=Object.fromEntries(new FormData(form).entries()); const ssid=(data.ssid||'').trim(); const pw=(data.password||'');
-    if(!ssid){ toast('SSID eingeben','warn'); return; }
+  if(!ssid){ toast('Enter SSID','warn'); return; }
+    const btn=form.querySelector('button[type=submit]'); const done=setLoading(btn);
     try{
-      const btn=form.querySelector('button[type=submit]'); const done=setLoading(btn);
-      const res = await api('/api/wifi/connect',{method:'POST',body:JSON.stringify({ssid:ssid,password:pw})});
-      toast('WLAN gespeichert – Gerät startet neu','success');
-      beginRebootWatch(true);
-      done();
-    }catch(_){ toast('Verbinden fehlgeschlagen','error'); }
+        const res = await api('/api/wifi/connect',{method:'POST',body:JSON.stringify({ssid:ssid,password:pw})});
+  toast('Wi‑Fi saved – connecting…','success');
+        // Async Poll Modal
+        const box=document.createElement('div');
+        const progOuter=document.createElement('div'); progOuter.className='progress-wrap';
+        const progBar=document.createElement('div'); progBar.className='progress-bar'; progBar.style.width='0%'; progOuter.appendChild(progBar);
+    const statusP=document.createElement('p'); statusP.innerHTML='<strong>Searching for IP...</strong>';
+  const ipP=document.createElement('p'); ipP.textContent='IP: (not yet)';
+        const host = (res.hostname || 'remindikids').toLowerCase();
+  const hostBtn=document.createElement('button'); hostBtn.type='button'; hostBtn.textContent='Check hostname'; hostBtn.disabled=true; hostBtn.className='btn-hostname-pruefen'; hostBtn.onclick=()=>window.open('http://'+host+'/', '_blank');
+    const ipBtn=document.createElement('button'); ipBtn.type='button'; ipBtn.textContent='Open'; ipBtn.disabled=true; ipBtn.onclick=()=>{ if(window.__lastWifiIP) window.open('http://'+window.__lastWifiIP+'/', '_blank'); };
+        const actions=document.createElement('div'); actions.className='actions-compact'; actions.appendChild(ipBtn); actions.appendChild(hostBtn);
+  const timeoutHint=document.createElement('p'); timeoutHint.className='small muted'; timeoutHint.textContent='If no IP is found: try via hostname or your router’s device list.';
+        box.appendChild(statusP); box.appendChild(progOuter); box.appendChild(ipP); box.appendChild(actions); box.appendChild(timeoutHint);
+  showModal('Home network connection', box);
+        const start=Date.now(); const MAX=30000; let stopped=false;
+        const poll=async()=>{
+          if(stopped) return;
+          try{ const st=await api('/api/wifi/sta-status');
+            const elapsed=Date.now()-start; const pct=Math.min(100, (elapsed/MAX)*100); progBar.style.width=pct+'%';
+            if(st.connected && st.ip){ window.__lastWifiIP=st.ip; ipP.textContent='IP: '+st.ip+' (please note)'; statusP.innerHTML='<strong>Connected</strong>'; ipBtn.disabled=false; hostBtn.disabled=false; progBar.style.width='100%'; stopped=true; return; }
+            if(elapsed>=MAX){ statusP.innerHTML='<strong>Continue via hostname</strong>'; hostBtn.disabled=false; stopped=true; progBar.style.width='100%'; return; }
+          }catch(_){ /* ignore transient errors */ }
+          setTimeout(poll,800);
+        }; poll();
+    }catch(e){
+  toast('Start failed – please try again','error');
+    } finally {
+      try{ done(); }catch(_){ }
+    }
   }
   async function citySearch(){
-    const q=(State.addrCity||'').trim(); if(!q){ toast('Bitte Stadt eingeben','warn'); return; }
+  const q=(State.addrCity||'').trim(); if(!q){ toast('Please enter a city','warn'); return; }
     try{ const res=await api('/api/geocode?city='+encodeURIComponent(q));
-      if(res && res.ok && Array.isArray(res.results) && res.results.length){ State.selectedCityResult = res.results[0]; toast('Ort übernommen: '+State.selectedCityResult.name,'success'); render(); }
-      else { toast('Keine Treffer','warn'); }
-    }catch(_){ toast('Suche fehlgeschlagen','error'); }
+      if(res && res.ok && Array.isArray(res.results) && res.results.length){ State.selectedCityResult = res.results[0]; toast('Selected: '+State.selectedCityResult.name,'success'); render(); }
+      else { toast('No results','warn'); }
+    }catch(_){ toast('Search failed','error'); }
   }
   function scanArea(){
     const box=h('div',{});
     if(!State.scanning && !State.networks.length){
-      box.appendChild(h('p',{},'Noch keine Suche durchgeführt.'));
-      box.appendChild(h('button',{onclick:startScan},'Suche starten'));
+  box.appendChild(h('p',{},'No scan yet.'));
+  box.appendChild(h('button',{onclick:startScan},'Start scan'));
     } else if(State.scanning){
       const prog=h('div',{class:'progress-wrap'},
         h('div',{class:'progress-bar',style:'width:0%'}));
-      box.appendChild(h('p',{},'Suche läuft ('+Math.round(State.scanDuration/1000)+'s)...'));
+  box.appendChild(h('p',{},'Scanning ('+Math.round(State.scanDuration/1000)+'s)...'));
       box.appendChild(prog);
       const update=()=>{
         if(!State.scanning) return;
@@ -1022,9 +1129,9 @@
           )
         ));
       });
-      if(!nets.length) list.appendChild(h('p',{},'Keine Netzwerke gefunden.'));
+  if(!nets.length) list.appendChild(h('p',{},'No networks found.'));
       box.appendChild(list);
-      box.appendChild(h('div',{class:'actions'},h('button',{onclick:startScan},'Aktualisieren')));
+  box.appendChild(h('div',{class:'actions'},h('button',{onclick:startScan},'Refresh')));
     }
     return box;
   }
@@ -1039,13 +1146,13 @@
         data.city=State.selectedCityResult.name;
       }
       await api('/api/address',{method:'POST',body:JSON.stringify(data)});
-        toast('Adresse + Standort übernommen','success');
+  toast('Address + location saved','success');
   // Nach Adresseingabe direkt zu Schritt 3 (Events) wechseln
   await refreshDashboard();
   State.wizardMode=true;
   State.step=3;
   render();
-    }catch(e){ toast('Speichern fehlgeschlagen','error'); }
+  }catch(e){ toast('Save failed','error'); }
   }
   function sendWizardStage(stage){
     try{ fetch('/api/wizard/stage',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'stage='+encodeURIComponent(stage)}); }catch(_){ }
@@ -1119,7 +1226,7 @@
   // Regression NICHT mehr automatisch erzwingen, damit der abgeschlossene Wizard nicht erneut erscheint.
   // Falls künftig ein Factory-Reset entdeckt werden soll, sollte Backend stage wieder auf 'wifi' setzen UND rcWizardDone löschen.
     let stepBefore=State.step; const newStage=State.dashboard?.stage;
-    if(State.wizardMode){
+    if(State.wizardMode && !suppressWizard){
       const st=State.dashboard?.stage;
     if(st==='wifi'){
       const looksLikeSetup = State.dashboard?.apMode || !State.dashboard?.online || !State.dashboard?.wifi_ssid;
@@ -1161,7 +1268,7 @@
         // UI direkt in Wizard-Modus versetzen (falls Gerät etwas verzögert neu startet)
         State.wizardMode=true; State.skipWaste=false; State.step=0; State.view=null; render();
         await api('/api/settings/factory-reset',{method:'POST'});
-    toast('Werkseinstellungen aktiviert. Gerät startet neu...','warn');
+  toast('Factory reset enabled. Device will restart...','warn');
     beginRebootWatch(true);
       } catch(e){ /* ignore */ }
     }
@@ -1169,28 +1276,28 @@
   async function saveBrightness(form){
     const data=Object.fromEntries(new FormData(form).entries());
     const btn=form.querySelector('button[type=submit]'); const done=setLoading(btn);
-  try { await api('/api/settings/brightness',{method:'POST',body:JSON.stringify(data)}); toast('LED gespeichert','success');
+  try { await api('/api/settings/brightness',{method:'POST',body:JSON.stringify(data)}); toast('LED settings saved','success');
     // Lokale Dashboard-Werte direkt anpassen
     if(State.dashboard){ const pct=parseInt(data.brightnessPercent||data.brightness||0,10); if(pct>0){ State.dashboard.rawBrightness = Math.round(pct*255/100); State.dashboard.brightness = pct; } }
     // Farbe lokal übernehmen und sofort Dashboard + Anzeige aktualisieren (force render)
     if(data.color){ let c=data.color; if(!c.startsWith('#')) c='#'+c; State.dashboard.color=c; }
     await refreshDashboard(true);
-  } catch(e){ toast('Fehler','error'); } finally { done(); State.editingActive=false; }
+  } catch(e){ toast('Error','error'); } finally { done(); State.editingActive=false; }
   }
   async function saveExtraColors(wrap){
     const rows=[...wrap.querySelectorAll('.pal-row')];
-    if(!rows.length){ toast('Keine Palette','warn'); return; }
+  if(!rows.length){ toast('No palette','warn'); return; }
     const out={}; rows.forEach(r=>{ const lbl=r.querySelector('.pal-label'); if(lbl && r.dataset.sel) out[lbl.textContent]=r.dataset.sel; });
-    if(Object.keys(out).length===0){ toast('Keine Auswahl','warn'); return; }
+  if(Object.keys(out).length===0){ toast('No selection','warn'); return; }
     const btn=wrap.parentElement?.querySelector('button.secondary'); const done=setLoading(btn);
-  try{ await api('/api/settings/extra-colors',{method:'POST',body:JSON.stringify(out)}); toast('Farben gespeichert','success'); await refreshDashboard(true); }
-    catch(e){ toast('Fehler beim Speichern','error'); } finally { done(); }
+  try{ await api('/api/settings/extra-colors',{method:'POST',body:JSON.stringify(out)}); toast('Colors saved','success'); await refreshDashboard(true); }
+    catch(e){ toast('Save failed','error'); } finally { done(); }
   }
   async function saveWeatherWords(form){ const data=Object.fromEntries(new FormData(form).entries()); const payload={}; const map=[['REGEN','#0000FF']];
     map.forEach(([k,def])=>{ const mode=(data[k+'_mode']||'auto'); let col=(data[k+'_col']||def); if(col && !col.startsWith('#')) col='#'+col; payload[k]={enabled:(mode==='auto'),color:col}; });
     const btn=form.querySelector('button[type=submit]'); const done=setLoading(btn);
-    try{ await api('/api/settings/weather-words',{method:'POST',body:JSON.stringify(payload)}); toast('Gespeichert','success'); await refreshDashboard(true); }
-    catch(e){ toast('Speichern fehlgeschlagen','error'); } finally { done(); }
+  try{ await api('/api/settings/weather-words',{method:'POST',body:JSON.stringify(payload)}); toast('Saved','success'); await refreshDashboard(true); }
+  catch(e){ toast('Save failed','error'); } finally { done(); }
   }
   // entfernt: veraltete Import-Implementierung mit doppelter Definition
   // Ersetze ad-hoc Poll-Logik durch gezielten Poll Mode
@@ -1198,20 +1305,27 @@
   // Removed waste & markets related functions in Kids version
   // --- Events/Birthdays API integration ---
   async function loadEvents(){
-    try { const res= await api('/api/events'); State.events = res; State.eventsLoaded=true; render(); }
-    catch(e){ toast('Events Laden fehlgeschlagen','error'); }
+  try { const res= await api('/api/events'); State.events = res; State.eventsLoaded=true; render(); }
+  catch(e){ toast('Failed to load events','error'); }
   }
   function parseDateParts(iso){ if(!iso||iso.length<10) return null; return {y:parseInt(iso.substring(0,4)), m:parseInt(iso.substring(5,7)), d:parseInt(iso.substring(8,10))}; }
   async function submitBirthday(form){ const d=Object.fromEntries(new FormData(form).entries()); if(d.id){ // edit: allow only name change for simplicity
       const btn=form.querySelector('button[type=submit]'); const done=setLoading(btn);
-      const payload={}; if(d.name) payload.name=d.name; try{ await putEvent(d.id,payload); toast('Aktualisiert','success'); State.editEvent=null; loadEvents(); form.reset(); }catch(e){ toast(e.message||'Fehler','error'); } finally { done(); }
+  const payload={}; if(d.name) payload.name=d.name; try{ await putEvent(d.id,payload); toast('Updated','success'); State.editEvent=null; loadEvents(); form.reset(); }catch(e){ toast(e.message||'Error','error'); } finally { done(); }
       return;
   }
   // Wizard uses birthday_date as field name -> map to date
   if(!d.name && d.birthday_name) d.name = d.birthday_name;
   if(!d.date && d.birthday_date) d.date = d.birthday_date;
-  if(!d.date){ toast('Datum fehlt','warn'); return; } const p=parseDateParts(d.date); if(!p){ toast('Ungültiges Datum','error'); return; }
-    const payload={type:'birthday', name:d.name||'Geburtstag', month:p.m, day:p.d}; const btn=form.querySelector('button[type=submit]'); const done2=setLoading(btn); try{ await postEvent(payload); toast('Geburtstag gespeichert','success'); form.reset(); loadEvents(); }catch(e){ toast(e.message||'Fehler','error'); } finally { done2(); } }
+  if(!d.date){ toast('Missing date','warn'); return; } const p=parseDateParts(d.date); if(!p){ toast('Invalid date','error'); return; }
+    const payload={type:'birthday', name:d.name||'Birthday', month:p.m, day:p.d}; const btn=form.querySelector('button[type=submit]'); const done2=setLoading(btn); try{ await postEvent(payload); toast('Birthday saved','success');
+      // Nach Erfolg: Draft leeren und frische Eingabe ermöglichen
+      if(State.wizardMode && State.step===3){ State.draftBirthday={name:'',date:''}; }
+      form.reset();
+      loadEvents();
+      // Fokus zurück auf das Namensfeld im Wizard
+      if(State.wizardMode && State.step===3){ setTimeout(()=>{ const el=document.querySelector('input[name="birthday_name"]'); if(el) el.focus(); }, 50); }
+  }catch(e){ toast(e.message||'Error','error'); } finally { done2(); } }
   async function postEvent(obj){
     try{
       let r= await fetch('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)});
@@ -1220,12 +1334,13 @@
         r= await fetch('/api/events',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:payload});
       }
       if(!r.ok) throw new Error('HTTP '+r.status);
-  // Nach erfolgreichem Speichern Dashboard aktualisieren (Status-Badges)
-  refreshDashboard(false);
+      // Nach erfolgreichem Speichern Dashboard aktualisieren (Status-Badges)
+      // Wichtig: Im Wizard (Events-Schritt) NICHT automatisch die Stage fortschalten
+      refreshDashboard(false,{suppressWizard:true});
       return true;
     }catch(e){ console.error('[Events] post fail',e); throw e; }
   }
-  async function submitSingle(form){ const d=Object.fromEntries(new FormData(form).entries()); if(d.id){ const payload={}; const btn=form.querySelector('button[type=submit]'); const done=setLoading(btn); if(!d.name && d.single_name) d.name=d.single_name; if(d.name) payload.name=d.name; if(d.date) payload.date=d.date; if(d.single_date && !payload.date) payload.date=d.single_date; if(d.color) payload.color=d.color; try{ await putEvent(d.id,payload); toast('Aktualisiert','success'); State.editEvent=null; loadEvents(); form.reset(); }catch(e){ toast(e.message||'Fehler','error'); } finally { done(); } return; }
+  async function submitSingle(form){ const d=Object.fromEntries(new FormData(form).entries()); if(d.id){ const payload={}; const btn=form.querySelector('button[type=submit]'); const done=setLoading(btn); if(!d.name && d.single_name) d.name=d.single_name; if(d.name) payload.name=d.name; if(d.date) payload.date=d.date; if(d.single_date && !payload.date) payload.date=d.single_date; if(d.color) payload.color=d.color; try{ await putEvent(d.id,payload); toast('Updated','success'); State.editEvent=null; loadEvents(); form.reset(); }catch(e){ toast(e.message||'Error','error'); } finally { done(); } return; }
     // Wizard uses single_date as field name -> map
     if(!d.name && d.single_name) d.name = d.single_name;
     if(!d.date && d.single_date) d.date = d.single_date;
@@ -1236,17 +1351,28 @@
       const parts=iso.split('.'); let dd=parseInt(parts[0],10); let mm=parseInt(parts[1],10); let yy=parseInt(parts[2],10); if(yy<100){ yy += (yy>=70?1900:2000); }
       if(yy>1900 && mm>=1&&mm<=12 && dd>=1&&dd<=31){ iso = `${yy.toString().padStart(4,'0')}-${mm.toString().padStart(2,'0')}-${dd.toString().padStart(2,'0')}`; }
     }
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(iso)){ toast('Ungültiges Datum','error'); return; }
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(iso)){ toast('Invalid date','error'); return; }
     // Zusätzlich year/month/day mitsenden für Backend-Fallback
     const y=parseInt(iso.substring(0,4),10), m=parseInt(iso.substring(5,7),10), da=parseInt(iso.substring(8,10),10);
-    const payload={type:'single', name:d.name||'Termin', date:iso, year:y, month:m, day:da, color:d.color||'#ff8800'};
-    const btn=form.querySelector('button[type=submit]'); const done2=setLoading(btn); try{ await postEvent(payload); toast('Termin gespeichert','success'); form.reset(); loadEvents(); }catch(e){ toast(e.message||'Fehler','error'); } finally { done2(); } }
+  const payload={type:'single', name:d.name||'Event', date:iso, year:y, month:m, day:da, color:d.color||'#ff8800'};
+  const btn=form.querySelector('button[type=submit]'); const done2=setLoading(btn); try{ await postEvent(payload); toast('Event saved','success');
+      // Nach Erfolg: Draft leeren und frische Eingabe ermöglichen
+      if(State.wizardMode && State.step===3){ State.draftSingle={name:'',date:'',color:'#ff8800'}; }
+      form.reset();
+      loadEvents();
+      if(State.wizardMode && State.step===3){ setTimeout(()=>{ const el=document.querySelector('input[name="single_name"]'); if(el) el.focus(); }, 50); }
+  }catch(e){ toast(e.message||'Error','error'); } finally { done2(); } }
   function collectWeekdays(form){ return Array.from(form.querySelectorAll('input[name=wd]:checked')).map(i=>parseInt(i.value)); }
-  async function submitSeries(form){ const d=Object.fromEntries(new FormData(form).entries()); const wds=collectWeekdays(form); if(d.id){ const payload={}; const btn=form.querySelector('button[type=submit]'); const done=setLoading(btn); if(d.name) payload.name=d.name; if(d.recur) payload.recur=d.recur; if(wds.length) payload.weekdays=wds; if(d.color) payload.color=d.color; if(d.recur==='monthly' && d.monthly_pos) payload.monthly_pos=parseInt(d.monthly_pos); try{ await putEvent(d.id,payload); toast('Aktualisiert','success'); State.editEvent=null; loadEvents(); form.reset(); }catch(e){ toast(e.message||'Fehler','error'); } finally { done(); } return; }
+  async function submitSeries(form){ const d=Object.fromEntries(new FormData(form).entries()); const wds=collectWeekdays(form); if(d.id){ const payload={}; const btn=form.querySelector('button[type=submit]'); const done=setLoading(btn); if(d.name) payload.name=d.name; if(d.recur) payload.recur=d.recur; if(wds.length) payload.weekdays=wds; if(d.color) payload.color=d.color; if(d.recur==='monthly' && d.monthly_pos) payload.monthly_pos=parseInt(d.monthly_pos); try{ await putEvent(d.id,payload); toast('Updated','success'); State.editEvent=null; loadEvents(); form.reset(); }catch(e){ toast(e.message||'Error','error'); } finally { done(); } return; }
   if(!d.name && d.series_name) d.name = d.series_name;
-  if(!wds.length){ toast('Mindestens ein Wochentag','warn'); return; } const payload={type:'series', name:d.name||'Serie', recur:d.recur||'weekly', weekdays:wds, color:d.color||'#33aaff'}; if(d.recur==='monthly' && d.monthly_pos) payload.monthly_pos=parseInt(d.monthly_pos); const btn=form.querySelector('button[type=submit]'); const done2=setLoading(btn); try{ await postEvent(payload); toast('Serie gespeichert','success'); form.reset(); toggleMonthlyPos(form); loadEvents(); }catch(e){ toast(e.message||'Fehler','error'); } finally { done2(); } }
+  if(!wds.length){ toast('Select at least one weekday','warn'); return; } const payload={type:'series', name:d.name||'Series', recur:d.recur||'weekly', weekdays:wds, color:d.color||'#33aaff'}; if(d.recur==='monthly' && d.monthly_pos) payload.monthly_pos=parseInt(d.monthly_pos); const btn=form.querySelector('button[type=submit]'); const done2=setLoading(btn); try{ await postEvent(payload); toast('Series saved','success');
+      // Nach Erfolg: Draft leeren und frisches Formular
+      if(State.wizardMode && State.step===3){ State.draftSeries={name:'',recur:'weekly',monthly_pos:'',weekdays:[],color:'#33aaff'}; }
+      form.reset(); toggleMonthlyPos(form); loadEvents();
+      if(State.wizardMode && State.step===3){ setTimeout(()=>{ const el=document.querySelector('input[name="series_name"]'); if(el) el.focus(); }, 50); }
+  }catch(e){ toast(e.message||'Error','error'); } finally { done2(); } }
   async function putEvent(id,obj){ try{ let r= await fetch('/api/events?id='+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)}); if(!r.ok){ const payload='body='+encodeURIComponent(JSON.stringify(obj)); r= await fetch('/api/events?id='+id,{method:'PUT',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:payload}); } if(!r.ok) throw new Error('HTTP '+r.status); return true; }catch(e){ console.error('[Events] put fail',e); throw e; } }
-  async function deleteEvent(id){ if(!confirm('Löschen?')) return; try{ await fetch('/api/events?id='+id,{method:'DELETE'}); toast('Gelöscht','success'); loadEvents(); }catch(e){ toast('Löschen fehlgeschlagen','error'); } }
+  async function deleteEvent(id){ if(!confirm('Delete?')) return; try{ await fetch('/api/events?id='+id,{method:'DELETE'}); toast('Deleted','success'); loadEvents(); }catch(e){ toast('Delete failed','error'); } }
   function toggleMonthlyPos(form){ const sel=form.querySelector('select[name=recur]'); const mp=form.querySelector('select[name=monthly_pos]'); if(!sel||!mp) return; if(sel.value==='monthly'){ mp.style.display=''; } else { mp.style.display='none'; mp.value=''; } }
 
   // Wizard-specific helpers for events
@@ -1261,7 +1387,7 @@
     const existing=document.getElementById('modal-backdrop'); if(existing) existing.remove();
     const backdrop=document.createElement('div'); backdrop.id='modal-backdrop'; backdrop.className='modal-backdrop';
     const modal=document.createElement('div'); modal.className='modal';
-    const title=document.createElement('h2'); title.textContent=(ev? 'Bearbeiten: ' : 'Neu: ')+ (type==='birthday'?'Geburtstag': type==='single'?'Termin':'Serientermin');
+  const title=document.createElement('h2'); title.textContent=(ev? 'Edit: ' : 'New: ')+ (type==='birthday'?'Birthday': type==='single'?'Event':'Recurring event');
     const closeBtn=document.createElement('button'); closeBtn.className='modal-close'; closeBtn.textContent='×'; closeBtn.type='button'; closeBtn.onclick=()=>backdrop.remove();
     modal.appendChild(closeBtn);
     modal.appendChild(title);
@@ -1270,10 +1396,33 @@
     if(type==='birthday') buildBirthdayForm(form,ev);
     else if(type==='single') buildSingleForm(form,ev);
     else buildSeriesForm(form,ev);
-    const actions=document.createElement('div'); actions.className='actions';
-    const save=document.createElement('button'); save.type='submit'; save.textContent= ev? 'Aktualisieren':'Speichern';
-    const cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Abbrechen'; cancel.className='secondary'; cancel.onclick=()=>backdrop.remove();
-    actions.appendChild(cancel); actions.appendChild(save);
+  const actions=document.createElement('div'); actions.className='actions actions-compact';
+  const save=document.createElement('button'); save.type='submit'; save.textContent= ev? 'Update':'Save';
+    // Delete now only inside modal
+  if(ev){ const del=document.createElement('button'); del.type='button'; del.textContent='Delete'; del.className='danger'; del.onclick=()=>{ if(confirm('Delete?')){ deleteEvent(ev.id); backdrop.remove(); } }; actions.appendChild(del); }
+    // Pause controls only for existing series events
+    if(ev && type==='series'){
+      const pauseWrap=document.createElement('div'); pauseWrap.className='inline-pause mobile-stack';
+      const statusSpan=document.createElement('div'); statusSpan.className='pause-status';
+      const todayIso=new Date().toISOString().substring(0,10);
+      if(ev.pause_until && todayIso < ev.pause_until){
+        statusSpan.textContent = 'Paused until ' + ev.pause_until + (ev.next_active ? (' (next: ' + ev.next_active + ')') : '');
+      } else if(ev.pause_until){
+        statusSpan.textContent='Pause ended ('+ev.pause_until+')';
+      } else {
+        statusSpan.textContent='Active';
+      }
+      const row=document.createElement('div'); row.className='pause-row';
+  const sel=document.createElement('select'); sel.name='pause_weeks'; sel.className='pause-select'; ['','1','2','3','4','6','8'].forEach(w=>{ const opt=document.createElement('option'); opt.value=w; opt.textContent= w===''?'- Weeks -': w+'w'; sel.appendChild(opt); });
+  const btnPause=document.createElement('button'); btnPause.type='button'; btnPause.textContent='Pause'; btnPause.className='secondary';
+  btnPause.onclick=()=>{ const w=sel.value; if(!w){ alert('Duration'); return; } const weeks=parseInt(w,10); const resume=new Date(Date.now()+weeks*7*86400000); const iso=resume.toISOString().substring(0,10); putEvent(ev.id,{pause_until:iso}).then(()=>{ toast('Paused until '+iso,'success'); loadEvents(); backdrop.remove(); }).catch(()=>toast('Error','error')); };
+  const btnResume=document.createElement('button'); btnResume.type='button'; btnResume.textContent='Resume'; btnResume.className='secondary';
+  btnResume.onclick=()=>{ putEvent(ev.id,{pause_until:''}).then(()=>{ toast('Resumed','success'); loadEvents(); backdrop.remove(); }).catch(()=>toast('Error','error')); };
+      row.appendChild(sel); row.appendChild(btnPause); row.appendChild(btnResume);
+      pauseWrap.appendChild(statusSpan); pauseWrap.appendChild(row);
+      actions.appendChild(pauseWrap);
+    }
+    actions.appendChild(save);
     form.appendChild(actions);
     form.onsubmit=(e)=>{
       e.preventDefault();
@@ -1291,25 +1440,25 @@
   function createHidden(name,val){ const i=document.createElement('input'); i.type='hidden'; i.name=name; i.value=val; return i; }
   function buildBirthdayForm(form,ev){
     form.appendChild(labelWrapSimple('Name',inputText('name',ev?ev.name:'')));
-    if(!ev){ form.appendChild(labelWrapSimple('Datum',inputField('date','date',''))); }
+    if(!ev){ form.appendChild(labelWrapSimple('Date',inputField('date','date',''))); }
   }
   function buildSingleForm(form,ev){
     form.appendChild(labelWrapSimple('Name',inputText('name',ev?ev.name:'')));
-    form.appendChild(labelWrapSimple('Datum',inputField('date','date',ev?ev.date:'')));
-    form.appendChild(labelWrapSimple('Farbe',inputField('color','color',ev?(ev.color||'#ff8800'):'#ff8800')));
+    form.appendChild(labelWrapSimple('Date',inputField('date','date',ev?ev.date:'')));
+    form.appendChild(labelWrapSimple('Color',inputField('color','color',ev?(ev.color||'#ff8800'):'#ff8800')));
   }
   function buildSeriesForm(form,ev){
     form.appendChild(labelWrapSimple('Name',inputText('name',ev?ev.name:'')));
-    const recur=inputSelect('recur',['weekly','biweekly','monthly'], ev?ev.recur:'weekly'); form.appendChild(labelWrapSimple('Wiederholung',recur));
-    const mp=inputSelect('monthly_pos',['','1','2','3','4'], ev? (ev.monthly_pos?String(ev.monthly_pos):'') : ''); mp.style.display= (recur.value==='monthly')?'':'none'; form.appendChild(labelWrapSimple('Monats-Pos',mp));
+    const recur=inputSelect('recur',['weekly','biweekly','monthly'], ev?ev.recur:'weekly'); form.appendChild(labelWrapSimple('Recurrence',recur));
+    const mp=inputSelect('monthly_pos',['','1','2','3','4'], ev? (ev.monthly_pos?String(ev.monthly_pos):'') : ''); mp.style.display= (recur.value==='monthly')?'':'none'; form.appendChild(labelWrapSimple('Monthly position',mp));
     recur.addEventListener('change',()=>{ mp.style.display= recur.value==='monthly'? '' : 'none'; if(recur.value!=='monthly') mp.value=''; });
-    const wdWrap=document.createElement('div'); wdWrap.className='weekday-select'; ['Mo','Di','Mi','Do','Fr','Sa','So'].forEach((lbl,i)=>{ const idx=i+1; const lab=document.createElement('label'); lab.className='wd'; const cb=document.createElement('input'); cb.type='checkbox'; cb.name='wd'; cb.value=String(idx); if(ev && Array.isArray(ev.weekdays) && ev.weekdays.includes(idx)) cb.checked=true; lab.appendChild(cb); lab.appendChild(document.createTextNode(lbl)); wdWrap.appendChild(lab); });
-    form.appendChild(labelWrapSimple('Wochentage',wdWrap));
-    form.appendChild(labelWrapSimple('Farbe',inputField('color','color',ev?(ev.color||'#33aaff'):'#33aaff')));
+    const wdWrap=document.createElement('div'); wdWrap.className='weekday-select'; ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach((lbl,i)=>{ const idx=i+1; const lab=document.createElement('label'); lab.className='wd'; const cb=document.createElement('input'); cb.type='checkbox'; cb.name='wd'; cb.value=String(idx); if(ev && Array.isArray(ev.weekdays) && ev.weekdays.includes(idx)) cb.checked=true; lab.appendChild(cb); lab.appendChild(document.createTextNode(lbl)); wdWrap.appendChild(lab); });
+    form.appendChild(labelWrapSimple('Weekdays',wdWrap));
+    form.appendChild(labelWrapSimple('Color',inputField('color','color',ev?(ev.color||'#33aaff'):'#33aaff')));
   }
   function inputText(name,val){ return inputField(name,'text',val); }
   function inputField(name,type,val){ const i=document.createElement('input'); i.name=name; i.type=type; if(val!=null) i.value=val; return i; }
-  function inputSelect(name,options,val){ const s=document.createElement('select'); s.name=name; options.forEach(o=>{ const opt=document.createElement('option'); opt.value=o; opt.textContent= o===''?'- Pos -': (o==='weekly'?'Wöchentlich': o==='biweekly'?'14-tägig': o==='monthly'?'Monatlich': o); if(o===val) opt.selected=true; s.appendChild(opt); }); return s; }
+  function inputSelect(name,options,val){ const s=document.createElement('select'); s.name=name; options.forEach(o=>{ const opt=document.createElement('option'); opt.value=o; opt.textContent= o===''?'- Pos -': (o==='weekly'?'Weekly': o==='biweekly'?'Bi-weekly': o==='monthly'?'Monthly': o); if(o===val) opt.selected=true; s.appendChild(opt); }); return s; }
   function labelWrapSimple(label,el){ const l=document.createElement('label'); l.className='field'; const span=document.createElement('span'); span.textContent=label; l.appendChild(span); l.appendChild(el); return l; }
 
   // showRestartHint entfernt (MQTT entfernt)
@@ -1317,16 +1466,35 @@
   function beginRebootWatch(longWait){
     if(State.rebootWatching) return;
     State.rebootWatching=true;
+    try{ toast('Connecting to network, please wait…','info',3000); }catch(_){ }
     let sawDown=false; const start=Date.now();
     const maxMs= longWait? 45000 : 25000;
+  let redirected=false; let triedIP=false;
+    const redirectToMdns=()=>{
+      if(redirected) return; redirected=true;
+      try{
+        const base = (State.dashboard?.hostname || 'RemindiKids').toString().toLowerCase();
+        const url = 'http://'+base+'/';
+        window.location.href = url;
+      }catch(_){ try{ window.location.href = 'http://remindikids/'; }catch(__){} }
+    };
+    const redirectToIp=(ip)=>{ if(redirected||!ip) return; redirected=true; try{ window.location.href = 'http://'+ip; }catch(_){ } };
     const attempt=()=>{
       fetch('/api/dashboard',{cache:'no-store'}).then(r=>{
         if(!r.ok) throw new Error('bad');
-        if(sawDown){ location.reload(); }
-        else { if(Date.now()-start>maxMs){ location.reload(); return; } setTimeout(attempt,1000); }
+        if(sawDown){
+          // Falls wir im letzten Connect die IP erhalten haben, nutze sie
+          const ip = (window.__lastWifiIP||'');
+          if(ip && !triedIP){ triedIP=true; redirectToIp(ip); return; }
+          redirectToMdns();
+        }
+        else { if(Date.now()-start>maxMs){ redirectToMdns(); return; } setTimeout(attempt,1000); }
       }).catch(()=>{ sawDown=true; if(Date.now()-start>maxMs){ location.reload(); return; } setTimeout(attempt,1500); });
     };
-    setTimeout(attempt, longWait? 3000 : 1500);
+    // Merke IP aus letztem Connect-Call im globalen Window-Scope, damit beginRebootWatch sie verwenden kann
+    try{ if(window.__lastWifiIP==null){ window.__lastWifiIP=''; } }catch(_){}
+    // Start Poll + Fallback-Redirect
+  setTimeout(()=>{ attempt(); setTimeout(()=>{ if(sawDown && !redirected){ const ip=(window.__lastWifiIP||''); if(ip) redirectToIp(ip); else redirectToMdns(); } }, 9000); }, longWait? 3000 : 1500);
   }
 
   // Init
