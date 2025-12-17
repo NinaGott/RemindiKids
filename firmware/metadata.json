@@ -1,9 +1,9 @@
 {
   "update_available": true,
-  "latest_version": "0.5.0",
+  "latest_version": "0.6.0",
   "download_url": "https://raw.githubusercontent.com/NinaGott/RemindiKids/main/firmware/firmware.bin",
-  "firmware_sha256": "07287301C9CBE262A21EF37B59B3604707EEF3890D602AA17ED77731C194F10C",
-  "assets_manifest_url": "https://raw.githubusercontent.com/NinaGott/RemindiKids/main/firmware/manifest-0.5.0.txt",
-  "assets_manifest_sha256": "CAFE6053135EFDD83F32F51D60D663789DA580086A20A141DA5627A97A61AF52",
-  "changelog": "English translation und worldwide local time"
+  "firmware_sha256": "79B5794E2B433C1BDBD5958614B01FBF299C29AD061F57A6A37303B000CF4BF9",
+  "assets_manifest_url": "https://raw.githubusercontent.com/NinaGott/RemindiKids/main/firmware/manifest-0.6.0.txt",
+  "assets_manifest_sha256": "7DB5CC04E7CDFD113C96571516F62DC2CFCF3848ECDB35B36E1AD64B8B0A06BF",
+  "changelog": "Improve worldwide local time"
 }

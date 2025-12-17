@@ -850,6 +850,13 @@
     // hidden input to submit current mode
     f.appendChild(hiddenVac);
   wrap.appendChild(card('Schedule',f));
+    // Time zone and manual offset form
+    const tzForm=h('form',{onsubmit:e=>{ e.preventDefault(); saveTimeSettings(tzForm); }});
+    const tzVal = d.timezone || 'Europe/Berlin';
+    const offVal = (typeof d.timeOffsetMinutes==='number')? d.timeOffsetMinutes : 0;
+    tzForm.appendChild(h('label',{class:'field'},'Time zone', h('input',{type:'text',name:'timezone',value:tzVal,placeholder:'Europe/Berlin or UTC+05:30 or POSIX:EST5EDT,...'})));
+    tzForm.appendChild(h('label',{class:'field'},'Manual offset (minutes)', h('input',{type:'number',name:'timeOffsetMinutes',value:String(offVal),min:-720,max:720,step:1,placeholder:'0'})));
+  wrap.appendChild(card('Time zone & offset', tzForm, h('button',{type:'submit',onclick:(e)=>{ e.preventDefault(); saveTimeSettings(tzForm); }}, 'Save')));
     return wrap;
   }
   function minutesToHHMM(m){ const h=Math.floor((m||0)/60), mi=(m||0)%60; return String(h).padStart(2,'0')+':'+String(mi).padStart(2,'0'); }
@@ -862,6 +869,15 @@
       holiday: (data.vac==='on')
     };
   try{ await api('/api/time/schedule',{method:'POST',body:JSON.stringify(payload)}); toast('Saved','success'); await refreshDashboard(true); } catch(e){ toast('Error','error'); }
+  }
+
+  async function saveTimeSettings(form){
+    const data=Object.fromEntries(new FormData(form).entries());
+    const tz=(data.timezone||'').trim();
+    let off=parseInt(data.timeOffsetMinutes||'0',10); if(isNaN(off)) off=0; if(off<-720) off=-720; if(off>720) off=720;
+    const payload={}; if(tz) payload.timezone=tz; payload.timeOffsetMinutes=off;
+    try{ await api('/api/time/settings',{method:'POST', body: JSON.stringify(payload)}); toast('Time settings saved','success'); await refreshDashboard(true); }
+    catch(e){ toast('Save failed','error'); }
   }
 
   function viewColors(){
