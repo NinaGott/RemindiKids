@@ -354,6 +354,11 @@
       wrap.appendChild(h('div',{class:'actions'},h('button',{onclick:()=>{ localStorage.setItem('rcWizardDone','1'); sendWizardStage('done'); State.wizardMode=false; State.view='Dashboard'; render(); }},'Go to Dashboard')));
     }
     app.appendChild(wrap);
+    // Add centered footer to wizard pages as well
+    app.appendChild(h('footer',{},
+      h('div',{}, 'Remindi © '+new Date().getFullYear()),
+      h('span',{class:'legal'}, 'Originals are only available from Remindi. The product design is legally protected, kontakt@remindi.de please if you bought somewhere else.')
+    ));
     // Versuche Fokus wiederherzustellen
     if(activeName){
       const el=app.querySelector(`[name="${activeName}"]`);
@@ -391,7 +396,11 @@
       );
       main.appendChild(bottom);
     }
-    main.appendChild(h('footer',{},'Remindi © '+new Date().getFullYear()));
+    // Centered footer with legal note
+    main.appendChild(h('footer',{},
+      h('div',{}, 'Remindi © '+new Date().getFullYear()),
+      h('span',{class:'legal'}, 'Originals are only available from Remindi. The product design is legally protected, kontakt@remindi.de please if you bought somewhere else.')
+    ));
     app.appendChild(main);
   }
 
@@ -797,8 +806,7 @@
     f.appendChild(nfWrap);
     nightSel.onchange=()=>{ toggleNightFields(); };
     function toggleNightFields(){ nfWrap.style.display = (nightSel.value==='on')? 'block':'none'; }
-  const baseColor = (State.dashboard?.color && /^#?[0-9a-fA-F]{6}$/.test(State.dashboard.color))? (State.dashboard.color.startsWith('#')? State.dashboard.color : '#'+State.dashboard.color) : '#ffffff';
-  f.appendChild(h('label',{class:'field'},'Clock',h('input',{type:'color',name:'color',value:baseColor}))); // renamed
+  // Removed color picker (Clock) from Brightness settings per request
     c.appendChild(card('LED settings',f,h('button',{type:'submit'},'Apply')));
   // Removed 'Farben Zusatzwörter' card per request
     return c;
@@ -1295,8 +1303,6 @@
   try { await api('/api/settings/brightness',{method:'POST',body:JSON.stringify(data)}); toast('LED settings saved','success');
     // Lokale Dashboard-Werte direkt anpassen
     if(State.dashboard){ const pct=parseInt(data.brightnessPercent||data.brightness||0,10); if(pct>0){ State.dashboard.rawBrightness = Math.round(pct*255/100); State.dashboard.brightness = pct; } }
-    // Farbe lokal übernehmen und sofort Dashboard + Anzeige aktualisieren (force render)
-    if(data.color){ let c=data.color; if(!c.startsWith('#')) c='#'+c; State.dashboard.color=c; }
     await refreshDashboard(true);
   } catch(e){ toast('Error','error'); } finally { done(); State.editingActive=false; }
   }

@@ -1,9 +1,9 @@
 {
   "update_available": true,
-  "latest_version": "0.6.0",
+  "latest_version": "0.7.0",
   "download_url": "https://raw.githubusercontent.com/NinaGott/RemindiKids/main/firmware/firmware.bin",
-  "firmware_sha256": "79B5794E2B433C1BDBD5958614B01FBF299C29AD061F57A6A37303B000CF4BF9",
-  "assets_manifest_url": "https://raw.githubusercontent.com/NinaGott/RemindiKids/main/firmware/manifest-0.6.0.txt",
-  "assets_manifest_sha256": "7DB5CC04E7CDFD113C96571516F62DC2CFCF3848ECDB35B36E1AD64B8B0A06BF",
-  "changelog": "Improve worldwide local time"
+  "firmware_sha256": "83CF8982B67D465DCA89A0FEF29D8DAB7A4382F64C1685862BFB787E077C6990",
+  "assets_manifest_url": "https://raw.githubusercontent.com/NinaGott/RemindiKids/main/firmware/manifest-0.7.0.txt",
+  "assets_manifest_sha256": "D25341459770B5978368BFC5BF7314B46E8EE6B795B4AC33B8EEE396D6511F11",
+  "changelog": "Updated wifi password"
 }
