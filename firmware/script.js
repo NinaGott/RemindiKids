@@ -934,6 +934,26 @@
     });
   sForm.appendChild(h('div',{class:'actions'}, h('button',{type:'submit'},'Save')));
     wrap.appendChild(card('Symbols', sForm));
+
+    // Thermometer thresholds
+    const tForm=h('form',{onsubmit:e=>{e.preventDefault();saveThermoThresholds(tForm);}});
+    const cur = (State.dashboard && Array.isArray(State.dashboard.thermoThresholdsC) && State.dashboard.thermoThresholdsC.length>=4)
+      ? State.dashboard.thermoThresholdsC
+      : [-50,5,15,25];
+    const labels=[
+      ['t1','Cold (blue) from (°C)'],
+      ['t2','Chilly (yellow) from (°C)'],
+      ['t3','Warm (orange) from (°C)'],
+      ['t4','Hot (red) from (°C)'],
+    ];
+    labels.forEach(([name,label],i)=>{
+      const v = (cur[i]!=null)? String(cur[i]) : '';
+      tForm.appendChild(h('label',{class:'field'},label,
+        h('input',{type:'number',name,step:1,min:-50,max:80,value:v})
+      ));
+    });
+    tForm.appendChild(h('div',{class:'actions'}, h('button',{type:'submit'},'Save')));
+    wrap.appendChild(card('Thermometer', tForm));
     return wrap;
   }
 
@@ -954,6 +974,19 @@
       if(col) payload[k].color = col;
     });
   try{ await api('/api/settings/symbols',{method:'POST',body:JSON.stringify(payload)}); toast('Symbols saved','success'); await refreshDashboard(true); } catch(e){ toast('Save error','error'); }
+  }
+
+  async function saveThermoThresholds(form){
+    const data=Object.fromEntries(new FormData(form).entries());
+    const vals=[data.t1,data.t2,data.t3,data.t4].map(v=>parseInt(v,10));
+    if(vals.some(v=>Number.isNaN(v))){ toast('Please enter all 4 thresholds','warn'); return; }
+    const btn=form.querySelector('button[type=submit]'); const done=setLoading(btn);
+    try{
+      await api('/api/settings/thermo-thresholds',{method:'POST',body:JSON.stringify({thresholdsC:vals})});
+      toast('Thermometer thresholds saved','success');
+      await refreshDashboard(true);
+    } catch(e){ toast('Save error','error'); }
+    finally { done(); }
   }
   // MQTT UI entfernt
   function showEventInfo(type){

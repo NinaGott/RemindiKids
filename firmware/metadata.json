@@ -1,9 +1,9 @@
 {
   "update_available": true,
-  "latest_version": "0.7.0",
+  "latest_version": "0.8.0",
   "download_url": "https://raw.githubusercontent.com/NinaGott/RemindiKids/main/firmware/firmware.bin",
-  "firmware_sha256": "83CF8982B67D465DCA89A0FEF29D8DAB7A4382F64C1685862BFB787E077C6990",
-  "assets_manifest_url": "https://raw.githubusercontent.com/NinaGott/RemindiKids/main/firmware/manifest-0.7.0.txt",
-  "assets_manifest_sha256": "D25341459770B5978368BFC5BF7314B46E8EE6B795B4AC33B8EEE396D6511F11",
-  "changelog": "Updated wifi password"
+  "firmware_sha256": "492AA96EB160FCC41109259664A9501DB6F3AC987F88487E334CDFB6B962E032",
+  "assets_manifest_url": "https://raw.githubusercontent.com/NinaGott/RemindiKids/main/firmware/manifest-0.8.0.txt",
+  "assets_manifest_sha256": "224298BD42FD2B37BDEE43E368344EB4E7496C2D27D380E9763339FC6098FB61",
+  "changelog": "Bugfix Save custom Colors, Added custom temperature thresholds for Thermometer"
 }
